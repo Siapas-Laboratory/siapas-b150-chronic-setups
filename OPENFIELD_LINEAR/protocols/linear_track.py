@@ -3,7 +3,7 @@ from PyQt5.QtCore import  QTimer
 from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QLabel
 from datetime import datetime
 import numpy as np
-from pyBehavior.utils.protocols import Protocol
+from pyBehavior.protocols import Protocol
 
 
 class linear_track(Protocol):

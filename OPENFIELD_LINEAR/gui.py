@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import  QHBoxLayout
-from pyBehavior.utils.gui import *
-from pyBehavior.utils.rpi import *
+from pyBehavior.gui import *
+from pyBehavior.interfaces.rpi import *
 import socket
 import time
 import ast

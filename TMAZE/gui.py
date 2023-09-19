@@ -1,8 +1,9 @@
 import logging
+import numpy as np
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import  QSpacerItem, QPushButton, QVBoxLayout, QHBoxLayout, QSizePolicy, QGridLayout, QButtonGroup
-from pyBehavior.utils.ni import *
-from pyBehavior.utils.gui import *
+from pyBehavior.interfaces.ni import *
+from pyBehavior.gui import *
 from pathlib import Path
 
 
