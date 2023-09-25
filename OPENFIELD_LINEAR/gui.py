@@ -44,6 +44,10 @@ class OPENFIELD_LINEAR(SetupGUI):
         pos_layout.addWidget(self.pos)
         self.layout.addLayout(pos_layout)
 
+
+        self.pump1 = PumpConfig(self.client, 'pump1')
+        self.layout.addWidget(self.pump1)
+
         self.mod1 = RPIRewardControl(self.client, 'module1')
         self.mod2 = RPIRewardControl(self.client, 'module2')
         self.reward_modules.update({'a': self.mod1, 
