@@ -76,7 +76,6 @@ class OPENFIELD_LINEAR(SetupGUI):
 
     def register_lick(self, data, module):
         msg = f'{module} lick {data}'
-        print(msg)
         self.log(msg)
 
     def register_pos(self, pos):
