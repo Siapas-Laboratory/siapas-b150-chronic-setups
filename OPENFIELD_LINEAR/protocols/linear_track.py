@@ -28,9 +28,9 @@ class linear_track(Protocol):
         self.tracker = linear_tracker()
         self.tracker.show()
         self.zoneA_span = np.array([[-100, 400], # x span of zone A
-                                    [600, 1000]])  # y span of zone A
+                                    [-150, 350]])  # y span of zone A
         self.zoneB_span = np.array([[1100, 1600], # x span of zone B
-                                    [600, 1000]]) # y span of zone B
+                                    [1300, 1700]]) # y span of zone B
         
     def deliver_reward(self):
         arm = self.current_state.id[0]
