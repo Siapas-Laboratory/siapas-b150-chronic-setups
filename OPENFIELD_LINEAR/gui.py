@@ -76,6 +76,7 @@ class OPENFIELD_LINEAR(SetupGUI):
         if self.sock:
             self.sock.close()
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind(("", int(port)))
 
     def register_lick(self, data, module):
@@ -89,14 +90,22 @@ class OPENFIELD_LINEAR(SetupGUI):
             self.state_machine.handle_input(pos)
 
 class Position(QThread):
-    def __init__(self, parent):
+    def __init__(self, parent, buff_size = 10):
         super(Position, self).__init__()
         self.parent = parent
+        self.pos_buffer = []
+        self.conf_buffer = []
     
     def run(self):
         while True:
             if self.parent.sock:
                 pos = ast.literal_eval(self.parent.sock.recv(1024).decode())
-                pos = np.array([i[0] for i in pos[0]]).mean(axis=0).tolist()
+                self.pos_buffer.append(np.array([i[0] for i in pos[0]]))
+                self.conf_buffer.append(np.array([i[1] for i in pos[0]]))
+                self.pos_buffer = self.pos_buffer[-5:]
+                self.conf_buffer = self.conf_buffer[-5:]
+                weighted_pos = np.array(self.pos_buffer) * np.array(self.conf_buffer)[:,:,None]
+                pos = weighted_pos.sum(axis=0)/np.array(self.conf_buffer).sum(axis=0)[:,None]
+                pos = pos.mean(axis=0).tolist()
                 self.parent.register_pos(pos)
                 time.sleep(.05)
