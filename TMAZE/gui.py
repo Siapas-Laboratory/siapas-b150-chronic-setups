@@ -116,14 +116,14 @@ class TMAZE(SetupGUI):
                                         self.mapping.loc['juicer_bleed1'],
                                         self.mapping.loc['juicer_bleed2'])
         
-        self.b_valve = NIRewardControl( self.mapping.loc['juicer_valve3'], 
+        self.b_valve = NIRewardControl( self.mapping.loc['juicer_valve1'], 
                                         'juicer_valve3', self,
                                         self.mapping.loc['juicer_purge'],
                                         self.mapping.loc['juicer_flush'],
                                         self.mapping.loc['juicer_bleed1'],
                                         self.mapping.loc['juicer_bleed2'])
 
-        self.a_valve = NIRewardControl( self.mapping.loc['juicer_valve1'], 
+        self.a_valve = NIRewardControl( self.mapping.loc['juicer_valve3'], 
                                         'juicer_valve1', self,
                                         self.mapping.loc['juicer_purge'],
                                         self.mapping.loc['juicer_flush'],
@@ -146,9 +146,9 @@ class TMAZE(SetupGUI):
 
         # start digital input threads
         # thread to monitor beams
-        self.beam_thread = NIDIChanThread(self.beams.port)
-        self.beam_thread.state_updated.connect(self.register_beam_break)
-        self.beam_thread.start()
+        # self.beam_thread = NIDIChanThread(self.beams.port)
+        # self.beam_thread.state_updated.connect(self.register_beam_break)
+        # self.beam_thread.start()
 
         # thread to monitor licking
         self.lick_thread = NIDIChanThread(self.mapping.loc[["licks_all"]], falling_edge = False)
@@ -172,7 +172,7 @@ class TMAZE(SetupGUI):
             digital_write(self.doors.loc[door,'port'], True)
 
     def register_lick(self, data):
-        self.log('lick')
+        self.log(data)
         self.trial_lick_n += 1
         self.prev_lick = datetime.now()
   

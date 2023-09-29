@@ -15,7 +15,7 @@ Dev2/port1/line6,juicer_flush
 Dev2/port1/line7,juicer_purge
 Dev2/port0/line6,juicer_bleed1
 Dev2/port0/line7,juicer_bleed2
-Dev4/port0/line2,licks_all
+Dev4/port0/line6,licks_all
 Dev2/port5/line0,beam9
 Dev2/port5/line1,beam10
 Dev2/port5/line2,beam11
@@ -69,4 +69,3 @@ Dev2/port11/line7,event7
 Dev4/ao0,speaker1
 Dev4/port0/line0,speakerts
 Dev4/port1/line1,dummyopen
-Dev4/port0/line3,dummyts
