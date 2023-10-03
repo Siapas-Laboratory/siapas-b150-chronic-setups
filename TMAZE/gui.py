@@ -1,10 +1,12 @@
 import logging
 import numpy as np
-from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import  QSpacerItem, QPushButton, QVBoxLayout, QHBoxLayout, QSizePolicy, QGridLayout, QButtonGroup
-from pyBehavior.interfaces.ni import *
+from pyBehavior.interfaces.ni import NIRewardControl, digital_write
 from pyBehavior.gui import *
+import pandas as pd
 from pathlib import Path
+import time
+from datetime import datetime
 
 
 
@@ -25,8 +27,7 @@ class TMAZE(SetupGUI):
         # get the port mappings for all beams
         all_beams = right_arm + left_arm + bottom_arm + sleep_arm
         self.beams = self.mapping.loc[all_beams].rename("port").to_frame()
-        self.beams['state'] = np.zeros((len(self.beams),), dtype = bool)        
-        
+
         # get port mappings for all doors
         door_names = [f'door{i}' for i in range(1,8)]
         self.doors = self.mapping.loc[door_names].rename("port").to_frame()
@@ -144,16 +145,14 @@ class TMAZE(SetupGUI):
         vlayout.addLayout(hlayout)
         self.layout.addLayout(vlayout)
 
-        # start digital input threads
-        # thread to monitor beams
-        # self.beam_thread = NIDIChanThread(self.beams.port)
-        # self.beam_thread.state_updated.connect(self.register_beam_break)
-        # self.beam_thread.start()
+        # start digital input daemon
+        daemon, daemon_thread = self.init_NIDIDaemon(pd.concat((self.beams.port, self.mapping.loc[["licks_all"]])))
+        daemon.channels.loc['licks_all'].rising_edge.connect(self.register_lick)
+        for i in self.beams.index:
+            daemon.channels.loc[i].rising_edge.connect(self.register_beam_break)
+            daemon.channels.loc[i].falling_edge.connect(self.register_beam_detect)
 
-        # thread to monitor licking
-        self.lick_thread = NIDIChanThread(self.mapping.loc[["licks_all"]], falling_edge = False)
-        self.lick_thread.state_updated.connect(self.register_lick)
-        self.lick_thread.start()
+        daemon_thread.start()
 
         self.trial_lick_n = 0
         self.prev_lick = datetime.now()
@@ -172,18 +171,17 @@ class TMAZE(SetupGUI):
             digital_write(self.doors.loc[door,'port'], True)
 
     def register_lick(self, data):
-        self.log(data)
+        self.log("lick")
         self.trial_lick_n += 1
         self.prev_lick = datetime.now()
   
-    def register_beam_break(self, data):
-        changed = data[self.beams.state != data].index
-        for c in changed:
-            if data.loc[c] > self.beams.loc[c].state:
-                self.log(c)
-                if self.running:
-                    self.state_machine.handle_input(c)
-            self.beams.loc[c,'button'].toggle()
-        self.beams['state'] = data
+    def register_beam_break(self, beam):
+        if self.running:
+            self.state_machine.handle_input(beam)
+        self.beams.loc[beam,'button'].toggle()
+        self.log(f"{beam} broken")
+
+    def register_beam_detect(self, beam):
+        self.beams.loc[beam,'button'].toggle()
 
     

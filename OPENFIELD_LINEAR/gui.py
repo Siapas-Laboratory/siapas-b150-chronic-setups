@@ -62,11 +62,11 @@ class OPENFIELD_LINEAR(SetupGUI):
         # start digital input threads
         # threads to monitor licking
         self.lick1_thread = RPILickThread(self.client, "module1")
-        self.lick1_thread.state_updated.connect(lambda x: self.register_lick(x, 'module1'))
+        self.lick1_thread.lick_num_updated.connect(lambda x: self.register_lick(x, 'module1'))
         self.lick1_thread.start()
 
         self.lick2_thread = RPILickThread(self.client, "module2")
-        self.lick2_thread.state_updated.connect(lambda x: self.register_lick(x, 'module2'))
+        self.lick2_thread.lick_num_updated.connect(lambda x: self.register_lick(x, 'module2'))
         self.lick2_thread.start()
 
         self.pos_thread = Position(self)
