@@ -117,14 +117,14 @@ class TMAZE(SetupGUI):
                                         self.mapping.loc['juicer_bleed1'],
                                         self.mapping.loc['juicer_bleed2'])
         
-        self.b_valve = NIRewardControl( self.mapping.loc['juicer_valve1'], 
+        self.b_valve = NIRewardControl( self.mapping.loc['juicer_valve3'], 
                                         'juicer_valve3', self,
                                         self.mapping.loc['juicer_purge'],
                                         self.mapping.loc['juicer_flush'],
                                         self.mapping.loc['juicer_bleed1'],
                                         self.mapping.loc['juicer_bleed2'])
 
-        self.a_valve = NIRewardControl( self.mapping.loc['juicer_valve3'], 
+        self.a_valve = NIRewardControl( self.mapping.loc['juicer_valve1'], 
                                         'juicer_valve1', self,
                                         self.mapping.loc['juicer_purge'],
                                         self.mapping.loc['juicer_flush'],
