@@ -11,17 +11,7 @@ class OPENFIELD_LINEAR(SetupGUI):
     def __init__(self):
         super(OPENFIELD_LINEAR, self).__init__(Path(__file__).parent.resolve())
         self.sock = None
-        # temporary code for mapping pixel to world coordinates
-        import h5py
-        from scipy.interpolate import interp2d
-
-        f = h5py.File(Path(__file__).parent/'pixel_to_world.mat')
-        x_cal = np.array(f['x_cal']).T
-        y_cal = np.array(f['y_cal']).T
         
-        self.x = interp2d(np.arange(x_cal.shape[1]), np.arange(x_cal.shape[0]), x_cal)
-        self.y = interp2d(np.arange(y_cal.shape[1]), np.arange(y_cal.shape[0]), y_cal)
-
         self.buildUI()
         self.client.run_command('toggle_auto_fill', {'on': True})
 
@@ -84,7 +74,7 @@ class OPENFIELD_LINEAR(SetupGUI):
         self.log(msg)
 
     def register_pos(self, pos):
-        pos = (self.x(*pos[::-1])[0], self.y(*pos[::-1])[0])
+        pos = tuple(pos)
         self.pos.setText(str(pos))
         if self.running:
             self.state_machine.handle_input(pos)
@@ -108,4 +98,4 @@ class Position(QThread):
                 pos = weighted_pos.sum(axis=0)/np.array(self.conf_buffer).sum(axis=0)[:,None]
                 pos = pos.mean(axis=0).tolist()
                 self.parent.register_pos(pos)
-                time.sleep(.05)
+                # time.sleep(.05)
