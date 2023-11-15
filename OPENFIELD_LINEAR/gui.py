@@ -15,6 +15,11 @@ class OPENFIELD_LINEAR(SetupGUI):
         self.buildUI()
         self.client.run_command('toggle_auto_fill', {'on': True})
 
+    def start_protocol(self):
+        status = self.client.run_command('toggle_auto_fill', {'on': True})
+        assert status == 'SUCCESS\n', "Unable to start autofill"
+        super(OPENFIELD_LINEAR, self).start_protocol()
+
     def buildUI(self):
 
         port_layout = QHBoxLayout()
