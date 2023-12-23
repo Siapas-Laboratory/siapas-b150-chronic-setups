@@ -27,10 +27,10 @@ class linear_track(Protocol):
         super(linear_track, self).__init__(parent)
         self.tracker = linear_tracker()
         self.tracker.show()
-        self.zoneA_span = np.array([[-500, 500], # x span of zone A
-                                    [-500, 500]])  # y span of zone A
-        self.zoneB_span = np.array([[1000, 1800], # x span of zone B
-                                    [1200, 1900]]) # y span of zone B
+        self.zoneA_span = np.array([[1600, 1900], # x span of zone A
+                                    [600, 1400]])  # y span of zone A
+        self.zoneB_span = np.array([[0, 300], # x span of zone B
+                                    [600, 1400]]) # y span of zone B
         
     def deliver_reward(self):
         arm = self.current_state.id[0]

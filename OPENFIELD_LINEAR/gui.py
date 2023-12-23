@@ -11,9 +11,7 @@ class OPENFIELD_LINEAR(SetupGUI):
     def __init__(self):
         super(OPENFIELD_LINEAR, self).__init__(Path(__file__).parent.resolve())
         self.sock = None
-        
         self.buildUI()
-        self.client.run_command('toggle_auto_fill', {'on': True})
 
     def start_protocol(self):
         status = self.client.run_command('toggle_auto_fill', {'on': True})
@@ -40,7 +38,7 @@ class OPENFIELD_LINEAR(SetupGUI):
         self.layout.addLayout(pos_layout)
 
 
-        self.pump1 = PumpConfig(self.client, 'pump1')
+        self.pump1 = PumpConfig(self.client, 'pump1', ['module1', 'module2'])
         self.layout.addWidget(self.pump1)
 
         self.mod1 = RPIRewardControl(self.client, 'module1')
@@ -102,5 +100,5 @@ class Position(QThread):
                 weighted_pos = np.array(self.pos_buffer) * np.array(self.conf_buffer)[:,:,None]
                 pos = weighted_pos.sum(axis=0)/np.array(self.conf_buffer).sum(axis=0)[:,None]
                 pos = pos.mean(axis=0).tolist()
-                self.parent.register_pos(pos)
+                self.parent.register_pos(pos[::-1])
                 # time.sleep(.05)
