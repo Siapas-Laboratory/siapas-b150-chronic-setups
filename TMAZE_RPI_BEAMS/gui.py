@@ -1,11 +1,14 @@
 from pyBehavior.interfaces.rpi import *
 from pyBehavior.interfaces.ni import *
+from PyQt5.QtWidgets import  QSpacerItem, QPushButton, QVBoxLayout, QHBoxLayout, QSizePolicy, QGridLayout, QButtonGroup
+
 
 from pyBehavior.gui import *
 
 class TMAZE_RPI_BEAMS(SetupGUI):
     def __init__(self):
         super(TMAZE_RPI_BEAMS, self).__init__(Path(__file__).parent.resolve())
+        self.buildUI()
 
     def buildUI(self):
 
