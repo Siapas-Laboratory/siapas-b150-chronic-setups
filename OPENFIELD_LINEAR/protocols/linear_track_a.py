@@ -6,7 +6,7 @@ import numpy as np
 from pyBehavior.protocols import Protocol
 
 
-class linear_track(Protocol):
+class linear_track_a(Protocol):
 
     sleep = State("sleep", initial=True)
     a_reward= State("a_reward")
@@ -27,10 +27,11 @@ class linear_track(Protocol):
         super(linear_track, self).__init__(parent)
         self.tracker = linear_tracker()
         self.tracker.show()
-        self.zoneA_span = np.array([[1600, 1900], # x span of zone A
-                                    [600, 1400]])  # y span of zone A
-        self.zoneB_span = np.array([[0, 300], # x span of zone B
-                                    [600, 1400]]) # y span of zone B
+        self.zoneA_span = np.array([[1400, 1900], # x span of zone A
+                                    [800, 1600]])  # y span of zone A
+        self.zoneB_span = np.array([[0, 500], # x span of zone B
+                                    [800, 1600]]) # y span of zone B
+        
         
     def deliver_reward(self):
         arm = self.current_state.id[0]

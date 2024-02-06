@@ -112,7 +112,7 @@ class TMAZE_RPI_BEAMS(SetupGUI):
                                     'b': self.b_valve, 
                                     's': self.stem_valve})
 
-        self.pump1 = PumpConfig(self.client, 'pump1', ['module1', 'module2'])
+        self.pump1 = PumpConfig(self.client, 'pump1', ['module3', 'module4', 'module5'])
         self.layout.addWidget(self.pump1)
         
         #format widgets
