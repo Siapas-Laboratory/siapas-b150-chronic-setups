@@ -126,16 +126,29 @@ class TMAZE_RPI_BEAMS(SetupGUI):
         self.layout.addLayout(vlayout)
 
         # start digital input daemon
-        daemon, daemon_thread = self.init_NIDIDaemon(self.beams.port)
+        self.daemon, self.daemon_thread = self.init_NIDIDaemon(self.beams.port)
         for i in self.beams.index:
-            daemon.channels.loc[i].rising_edge.connect(self.register_beam_break)
-            daemon.channels.loc[i].falling_edge.connect(self.register_beam_detect)
+            self.daemon.channels.loc[i].rising_edge.connect(self.register_beam_break)
+            self.daemon.channels.loc[i].falling_edge.connect(self.register_beam_detect)
 
-        daemon_thread.start()
+        self.daemon_thread.start()
 
         self.trial_lick_n = 0
         self.prev_lick = datetime.now()
         self.bout_thresh = 1
+
+        self.b_lick_thread = RPILickThread(self.client, 'module3')
+        self.b_lick_thread.lick_num_updated.connect(lambda x: self.register_lick('b'))
+
+        self.stem_lick_thread = RPILickThread(self.client, 'module4')
+        self.stem_lick_thread.lick_num_updated.connect(lambda x: self.register_lick('stem'))
+
+        self.a_lick_thread = RPILickThread(self.client, 'module5')
+        self.a_lick_thread.lick_num_updated.connect(lambda x: self.register_lick('a'))
+
+        self.b_lick_thread.start()
+        self.stem_lick_thread.start()
+        self.a_lick_thread.start()
 
         for i in range(1,8):
             digital_write(self.doors.loc[f"door{i}",'port'], True)
@@ -149,10 +162,8 @@ class TMAZE_RPI_BEAMS(SetupGUI):
             self.log(f"lowering {door}")
             digital_write(self.doors.loc[door,'port'], True)
 
-    def register_lick(self, data):
-        self.log("lick")
-        self.trial_lick_n += 1
-        self.prev_lick = datetime.now()
+    def register_lick(self, arm):
+        self.log(f"{arm} lick")
   
     def register_beam_break(self, beam):
         if self.running:
