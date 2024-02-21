@@ -1,7 +1,7 @@
 from pyBehavior.interfaces.rpi import *
 from pyBehavior.interfaces.ni import *
 from PyQt5.QtWidgets import  QSpacerItem, QPushButton, QVBoxLayout, QHBoxLayout, QSizePolicy, QGridLayout, QButtonGroup
-
+from pyBehavior.interfaces.socket import EventstringSender
 
 from pyBehavior.gui import *
 
@@ -11,6 +11,9 @@ class TMAZE_RPI_BEAMS(SetupGUI):
         self.buildUI()
 
     def buildUI(self):
+
+        self.ev_logger = EventstringSender()
+        self.layout.addWidget(self.ev_logger)
 
         # organize beams by corresponding arm of the maze
         right_arm = [f'beam{i}' for i in range(1,9)]
@@ -153,6 +156,12 @@ class TMAZE_RPI_BEAMS(SetupGUI):
         for i in range(1,8):
             digital_write(self.doors.loc[f"door{i}",'port'], True)
     
+    def log(self, msg):
+        digital_write(self.mapping.loc['event0'], True)
+        self.ev_logger.send(msg)
+        super(TMAZE_RPI_BEAMS, self).log(msg)
+        digital_write(self.mapping.loc['event0'], False)
+
     def toggle_door(self, btn, checked):
         door = btn.text()
         if checked:

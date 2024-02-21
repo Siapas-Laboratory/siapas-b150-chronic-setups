@@ -1,7 +1,10 @@
 from PyQt5.QtWidgets import  QHBoxLayout
 from pyBehavior.gui import *
 from pyBehavior.interfaces.rpi import *
+from pyBehavior.interfaces.ni import *
 from pyBehavior.interfaces.socket import Position
+from pyBehavior.interfaces.socket import EventstringSender
+
 
 class OPENFIELD_LINEAR(SetupGUI):
 
@@ -17,6 +20,8 @@ class OPENFIELD_LINEAR(SetupGUI):
 
     def buildUI(self):
 
+        self.ev_logger = EventstringSender()
+        self.layout.addWidget(self.ev_logger)
         self.position = Position()
         self.position.new_position.connect(self.register_pos)
         self.position.start()
@@ -55,3 +60,9 @@ class OPENFIELD_LINEAR(SetupGUI):
         self.pos.setText(str(pos))
         if self.running:
             self.state_machine.handle_input(pos)
+    
+    def log(self, msg):
+        digital_write(self.mapping.loc['event0'], True)
+        self.ev_logger.send(msg)
+        super(OPENFIELD_LINEAR, self).log(msg)
+        digital_write(self.mapping.loc['event0'], False)
