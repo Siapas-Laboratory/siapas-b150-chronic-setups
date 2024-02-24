@@ -37,7 +37,7 @@ class linear_track(Protocol):
         self.parent.trigger_reward(arm, False)
         self.tracker.current_trial_start = datetime.now()
         self.tracker.tot_laps_n += 1
-        self.tracker.tot_laps.setText(f"Total Laps: {self.tracker.tot_laps_n%2}")
+        self.tracker.tot_laps.setText(f"Total Laps: {self.tracker.tot_laps_n//2}")
 
 
     def handle_input(self, dg_input):

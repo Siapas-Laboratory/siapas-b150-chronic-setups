@@ -13,10 +13,10 @@ class OPENFIELD_LINEAR(SetupGUI):
         self.sock = None
         self.buildUI()
 
-    def start_protocol(self):
-        status = self.client.run_command('toggle_auto_fill', {'on': True})
-        assert status == 'SUCCESS\n', "Unable to start autofill"
-        super(OPENFIELD_LINEAR, self).start_protocol()
+    # def start_protocol(self):
+    #     status = self.client.run_command('toggle_auto_fill', {'on': True})
+    #     assert status == 'SUCCESS\n', "Unable to start autofill"
+    #     super(OPENFIELD_LINEAR, self).start_protocol()
 
     def buildUI(self):
 
@@ -66,3 +66,6 @@ class OPENFIELD_LINEAR(SetupGUI):
         self.ev_logger.send(msg)
         super(OPENFIELD_LINEAR, self).log(msg)
         digital_write(self.mapping.loc['event0'], False)
+
+    def trigger_reward(self, module, small, force = True, wait = False):
+        self.reward_modules[module].trigger_reward(small, force, wait)

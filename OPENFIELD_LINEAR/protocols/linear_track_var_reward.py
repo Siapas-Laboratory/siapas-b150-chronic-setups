@@ -1,16 +1,48 @@
 from statemachine import State
-from PyQt5.QtCore import  QTimer
+from PyQt5.QtCore import  QTimer, QThread, pyqtSignal, QObject
 from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QLabel
 from datetime import datetime
 import numpy as np
 from pyBehavior.protocols import Protocol
+import json
 
+class Worker(QObject):
 
-class linear_track_a(Protocol):
+    finished = pyqtSignal(name = 'finished')
+
+    def __init__(self, state_machine, gui):
+        super(Worker, self).__init__()
+        self.state_machine = state_machine
+        self.gui = gui
+        for i in self.gui.reward_modules:
+            idx = self.gui.reward_modules[i].trigger_mode.findText("Single Trigger")
+            self.gui.reward_modules[i].trigger_mode.setCurrentIndex(idx)
+
+    def run(self):
+        res = self.gui.client.run_command("trigger_reward_multiple",
+                                            args = {
+                                                "modules": ["module1", "module2"],
+                                                "amount": float(self.gui.mod1.amt.text()),
+                                                "trigger_mode": "SINGLE_TRIGGER",
+                                                "trigger_name": "reset_lick_trigger",
+                                            })
+        res = json.loads(res)
+        if res =='module1': 
+            self.parent.log(f"arm a correct")
+            self.state_machine.zoneB()
+        elif res == 'module2': 
+            self.parent.log(f"arm b correct")
+            self.state_machine.zoneA()
+        else:raise ValueError
+
+        self.finished.emit()
+
+class linear_track_var_reward(Protocol):
 
     sleep = State("sleep", initial=True)
     a_reward= State("a_reward")
     b_reward= State("b_reward")
+
 
     zoneA =  ( sleep.to(a_reward,  after = "deliver_reward") 
                | b_reward.to(a_reward,  after = "deliver_reward") 
@@ -24,31 +56,31 @@ class linear_track_a(Protocol):
     )
 
     def __init__(self, parent):
-        super(linear_track_a, self).__init__(parent)
+        super(linear_track_var_reward, self).__init__(parent)
         self.tracker = linear_tracker()
         self.tracker.show()
-        self.zoneA_span = np.array([[1400, 1900], # x span of zone A
-                                    [800, 1600]])  # y span of zone A
-        self.zoneB_span = np.array([[0, 500], # x span of zone B
-                                    [800, 1600]]) # y span of zone B
-        
+
+        self.task_thread = QThread()
+        self.worker = Worker(self, self.parent)
+        self.worker.moveToThread(self.task_thread)
+        self.task_thread.started.connect(self.worker.run)
+        self.worker.finished.connect(self.task_thread.quit)
+        self.task_thread.start()
+
         
     def deliver_reward(self):
         arm = self.current_state.id[0]
-        self.parent.log(f"arm {arm} correct")
-        self.parent.trigger_reward(arm, False)
+        self.parent.log(f"arm {arm} baited")
+        self.parent.trigger_reward(arm, False, force = False, wait = True)
         self.tracker.current_trial_start = datetime.now()
         self.tracker.tot_laps_n += 1
         self.tracker.tot_laps.setText(f"Total Laps: {self.tracker.tot_laps_n//2}")
-
+        if self.parent.running:
+            if arm == 'a': self.zoneB()
+            else: self.zoneA()
 
     def handle_input(self, pos):
-        if (( self.zoneA_span[0,0] <= pos[0]) and (pos[0] <= self.zoneA_span[0,1]) 
-            and (self.zoneA_span[1,0] <= pos[1]) and (pos[1] <= self.zoneA_span[1,1])):
-            self.zoneA()
-        elif (( self.zoneB_span[0,0] <= pos[0]) and (pos[0] <= self.zoneB_span[0,1]) 
-              and (self.zoneB_span[1,0] <= pos[1]) and (pos[1] <= self.zoneB_span[1,1])):
-            self.zoneB()
+        pass
 
 class linear_tracker(QMainWindow):
     def __init__(self):
