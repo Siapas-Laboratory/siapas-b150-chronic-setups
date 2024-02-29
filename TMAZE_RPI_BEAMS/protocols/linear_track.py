@@ -41,8 +41,9 @@ class linear_track(Protocol):
 
 
     def handle_input(self, dg_input):
-        if dg_input in self.beams.index:
-            self.beams[dg_input]()
+        if dg_input['type'] == "beam":
+            if dg_input in self.beams.index:
+                self.beams[dg_input]()
 
 class linear_tracker(QMainWindow):
     def __init__(self):

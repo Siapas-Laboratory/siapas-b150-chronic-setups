@@ -44,22 +44,23 @@ class OPENFIELD_LINEAR(SetupGUI):
         # start digital input threads
         # threads to monitor licking
         self.lick1_thread = RPILickThread(self.client, "module1")
-        self.lick1_thread.lick_num_updated.connect(lambda x: self.register_lick(x, 'module1'))
+        self.lick1_thread.lick_num_updated.connect(lambda x: self.register_lick('a', x))
         self.lick1_thread.start()
 
         self.lick2_thread = RPILickThread(self.client, "module2")
-        self.lick2_thread.lick_num_updated.connect(lambda x: self.register_lick(x, 'module2'))
+        self.lick2_thread.lick_num_updated.connect(lambda x: self.register_lick('b', x))
         self.lick2_thread.start()
 
-    def register_lick(self, data, module):
-        msg = f'{module} lick {data}'
-        self.log(msg)
+    def register_lick(self, arm, amt):
+        if self.running:
+            self.state_machine.handle_input({"type": "lick", "arm": arm, "amt":amt})
+        self.log(f"{arm} {amt} licks")
 
     def register_pos(self, pos):
         pos = tuple(pos)
         self.pos.setText(str(pos))
         if self.running:
-            self.state_machine.handle_input(pos)
+            self.state_machine.handle_input({"type":"pos", "pos": pos})
     
     def log(self, msg):
         digital_write(self.mapping.loc['event0'], True)

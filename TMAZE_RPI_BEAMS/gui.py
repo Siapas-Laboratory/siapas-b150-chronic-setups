@@ -141,13 +141,13 @@ class TMAZE_RPI_BEAMS(SetupGUI):
         self.bout_thresh = 1
 
         self.b_lick_thread = RPILickThread(self.client, 'module3')
-        self.b_lick_thread.lick_num_updated.connect(lambda x: self.register_lick('b'))
+        self.b_lick_thread.lick_num_updated.connect(lambda x: self.register_lick('b', x))
 
         self.stem_lick_thread = RPILickThread(self.client, 'module4')
-        self.stem_lick_thread.lick_num_updated.connect(lambda x: self.register_lick('stem'))
+        self.stem_lick_thread.lick_num_updated.connect(lambda x: self.register_lick('stem', x))
 
         self.a_lick_thread = RPILickThread(self.client, 'module5')
-        self.a_lick_thread.lick_num_updated.connect(lambda x: self.register_lick('a'))
+        self.a_lick_thread.lick_num_updated.connect(lambda x: self.register_lick('a', x))
 
         self.b_lick_thread.start()
         self.stem_lick_thread.start()
@@ -171,14 +171,20 @@ class TMAZE_RPI_BEAMS(SetupGUI):
             self.log(f"lowering {door}")
             digital_write(self.doors.loc[door,'port'], True)
 
-    def register_lick(self, arm):
-        self.log(f"{arm} lick")
+    def register_lick(self, arm, amt):
+        if self.running:
+            self.state_machine.handle_input({"type": "lick", "arm": arm, "amt":amt})
+        self.log(f"{arm} {amt} licks")
   
     def register_beam_break(self, beam):
         if self.running:
-            self.state_machine.handle_input(beam)
+            self.state_machine.handle_input({"type": "beam", "beam": beam})
         self.beams.loc[beam,'button'].toggle()
         self.log(f"{beam} broken")
 
     def register_beam_detect(self, beam):
         self.beams.loc[beam,'button'].toggle()
+
+    def trigger_reward(self, module, small, force = True, wait = False):
+        #TODO: make sure we are logging
+        self.reward_modules[module].trigger_reward(small, force, wait)

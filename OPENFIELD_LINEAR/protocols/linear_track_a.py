@@ -42,13 +42,15 @@ class linear_track_a(Protocol):
         self.tracker.tot_laps.setText(f"Total Laps: {self.tracker.tot_laps_n//2}")
 
 
-    def handle_input(self, pos):
-        if (( self.zoneA_span[0,0] <= pos[0]) and (pos[0] <= self.zoneA_span[0,1]) 
-            and (self.zoneA_span[1,0] <= pos[1]) and (pos[1] <= self.zoneA_span[1,1])):
-            self.zoneA()
-        elif (( self.zoneB_span[0,0] <= pos[0]) and (pos[0] <= self.zoneB_span[0,1]) 
-              and (self.zoneB_span[1,0] <= pos[1]) and (pos[1] <= self.zoneB_span[1,1])):
-            self.zoneB()
+    def handle_input(self, sm_input):
+        if sm_input["type"] == "pos":
+            pos = sm_input["pos"]
+            if (( self.zoneA_span[0,0] <= pos[0]) and (pos[0] <= self.zoneA_span[0,1]) 
+                and (self.zoneA_span[1,0] <= pos[1]) and (pos[1] <= self.zoneA_span[1,1])):
+                self.zoneA()
+            elif (( self.zoneB_span[0,0] <= pos[0]) and (pos[0] <= self.zoneB_span[0,1]) 
+                and (self.zoneB_span[1,0] <= pos[1]) and (pos[1] <= self.zoneB_span[1,1])):
+                self.zoneB()
 
 class linear_tracker(QMainWindow):
     def __init__(self):
