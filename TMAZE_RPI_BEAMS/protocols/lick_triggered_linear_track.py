@@ -16,19 +16,19 @@ class lick_triggered_linear_track(Protocol):
     b_waiting = State("b_waiting")
 
 
-    lickA =  ( sleep.to(a_licking,after = "increment_lap") 
-               | a_waiting.to(a_licking)
-               | a_licking.to.itself(cond = "sub_thresh") 
-               | a_licking.to(b_waiting, on = "deliver_reward",after = "increment_lap")
-               | b_licking.to(a_licking, after = "increment_lap")
+    lickA =  ( sleep.to(a_licking, after = "increment_lap", before = "increment_a") 
+               | a_waiting.to(a_licking,  before = "increment_a")
+               | a_licking.to.itself(cond = "sub_thresh", before = "increment_a") 
+               | a_licking.to(b_waiting, before = "increment_a", on = "deliver_reward", after = "increment_lap")
+               | b_licking.to(a_licking, after = "increment_lap", before = "increment_a")
                | b_waiting.to.itself()
     )
 
-    lickB =  ( sleep.to(b_licking,after = "increment_lap") 
-               | b_waiting.to(b_licking)
-               | b_licking.to.itself(cond = "sub_thresh") 
-               | b_licking.to(a_waiting, on = "deliver_reward", after = "increment_lap")
-               | a_licking.to(b_licking, after = "increment_lap")
+    lickB =  ( sleep.to(b_licking, before = "increment_b", after = "increment_lap") 
+               | b_waiting.to(b_licking, before = "increment_b")
+               | b_licking.to.itself(cond = "sub_thresh", before = "increment_b") 
+               | b_licking.to(a_waiting, before = "increment_b", on = "deliver_reward", after = "increment_lap")
+               | a_licking.to(b_licking, before = "increment_b", after = "increment_lap")
                | a_waiting.to.itself()
     )
 
@@ -45,13 +45,15 @@ class lick_triggered_linear_track(Protocol):
     def increment_lap(self):
         self.tracker.tot_laps_n += 1
         self.tracker.tot_laps.setText(f"Total Laps: {self.tracker.tot_laps_n//2}")
+        self.tracker.current_trial_start = datetime.now()
 
-    def increment_lick(self, arm, val = 1):
-        self.licks[arm] += val
-        if arm == "a":
-            self.licks["b"] = 0
-        else:
-            self.licks["a"] = 0
+    def increment_a(self):
+        self.licks["a"] += 1
+        self.licks["b"] = 0
+    
+    def increment_b(self):
+        self.licks["b"] += 1
+        self.licks["a"] = 0
 
     def sub_thresh(self):
         arm = self.current_state.id[0]
@@ -60,8 +62,8 @@ class lick_triggered_linear_track(Protocol):
     def handle_input(self, sm_input):
         if sm_input['type'] == "lick":
             if sm_input['arm'] in self.lick_action_map:
-                self.lick_action_map[sm_input["arm"]]()
-                self.increment_lick(sm_input["arm"], val =sm_input["amt"] )
+                for _ in range(sm_input["amt"]):
+                    self.lick_action_map[sm_input["arm"]]()
 
     def deliver_reward(self):
         arm = self.current_state.id[0]

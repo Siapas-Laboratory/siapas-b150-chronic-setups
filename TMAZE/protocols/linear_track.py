@@ -40,9 +40,11 @@ class linear_track(Protocol):
         self.tracker.tot_laps.setText(f"Total Laps: {self.tracker.tot_laps_n//2}")
 
 
-    def handle_input(self, dg_input):
-        if dg_input in self.beams.index:
-            self.beams[dg_input]()
+    def handle_input(self, sm_input):
+        if sm_input["type"] == "beam":
+            beam = sm_input["beam"]
+            if beam in self.beams.index:
+                self.beams[beam]()
 
 class linear_tracker(QMainWindow):
     def __init__(self):

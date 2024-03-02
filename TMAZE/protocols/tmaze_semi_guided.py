@@ -134,10 +134,12 @@ class tmaze_semi_guided(Protocol):
         self.parent.trigger_reward(arm, True)
 
 
-    def handle_input(self, dg_input):
-        if dg_input in self.beams.index:
-            self.beams[dg_input]()
-        self.tracker.current_state.setText(f"current state: {self.current_state.id}")
+    def handle_input(self, sm_input):
+        if sm_input["type"] == "beam":
+            beam = sm_input["beam"]
+            if beam in self.beams.index:
+                self.beams[beam]()
+            self.tracker.current_state.setText(f"current state: {self.current_state.id}")
 
 class tmaze_tracker(QMainWindow):
     def __init__(self):

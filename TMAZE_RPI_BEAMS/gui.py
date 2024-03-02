@@ -186,5 +186,7 @@ class TMAZE_RPI_BEAMS(SetupGUI):
         self.beams.loc[beam,'button'].toggle()
 
     def trigger_reward(self, module, small, force = True, wait = False):
-        #TODO: make sure we are logging
+        amt = float(self.reward_modules[module].amt.text())
+        amt = amt * float(self.reward_modules[module].small_pulse_frac.text()) if small else amt
+        self.log(f"triggering {amt:.2f} mL reward on module {module}")
         self.reward_modules[module].trigger_reward(small, force, wait)

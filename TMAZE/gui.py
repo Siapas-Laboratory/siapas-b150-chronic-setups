@@ -165,7 +165,6 @@ class TMAZE(SetupGUI):
         for i in range(1,8):
             digital_write(self.doors.loc[f"door{i}",'port'], True)
         
-
     def log(self, msg):
         digital_write(self.mapping.loc['event0'], True)
         self.ev_logger.send(msg)
@@ -183,12 +182,12 @@ class TMAZE(SetupGUI):
 
     def register_lick(self, data):
         self.log("lick")
-        self.trial_lick_n += 1
-        self.prev_lick = datetime.now()
+        if self.running:
+            self.state_machine.handle_input({"type": "lick"})
   
     def register_beam_break(self, beam):
         if self.running:
-            self.state_machine.handle_input(beam)
+            self.state_machine.handle_input({"type": "beam", "beam": beam})
         self.beams.loc[beam,'button'].toggle()
         self.log(f"{beam} broken")
 
