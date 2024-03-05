@@ -156,11 +156,13 @@ class TMAZE_RPI_BEAMS(SetupGUI):
         for i in range(1,8):
             digital_write(self.doors.loc[f"door{i}",'port'], True)
     
-    def log(self, msg):
-        digital_write(self.mapping.loc['event0'], True)
+    def log(self, msg, trigger_event = True):
+        if trigger_event:
+            digital_write(self.mapping.loc['event0'], True)
         self.ev_logger.send(msg)
         super(TMAZE_RPI_BEAMS, self).log(msg)
-        digital_write(self.mapping.loc['event0'], False)
+        if trigger_event:
+            digital_write(self.mapping.loc['event0'], False)
 
     def toggle_door(self, btn, checked):
         door = btn.text()
@@ -174,7 +176,7 @@ class TMAZE_RPI_BEAMS(SetupGUI):
     def register_lick(self, arm, amt):
         if self.running:
             self.state_machine.handle_input({"type": "lick", "arm": arm, "amt":amt})
-        self.log(f"{arm} {amt} licks")
+        self.log(f"{arm} {amt} licks", trigger_event=False)
   
     def register_beam_break(self, beam):
         if self.running:

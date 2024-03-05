@@ -54,7 +54,7 @@ class OPENFIELD_LINEAR(SetupGUI):
     def register_lick(self, arm, amt):
         if self.running:
             self.state_machine.handle_input({"type": "lick", "arm": arm, "amt":amt})
-        self.log(f"{arm} {amt} licks")
+        self.log(f"{arm} {amt} licks", trigger_event=False)
 
     def register_pos(self, pos):
         pos = tuple(pos)
@@ -62,11 +62,16 @@ class OPENFIELD_LINEAR(SetupGUI):
         if self.running:
             self.state_machine.handle_input({"type":"pos", "pos": pos})
     
-    def log(self, msg):
-        digital_write(self.mapping.loc['event0'], True)
+    def log(self, msg, trigger_event = True):
+        if trigger_event:
+            digital_write(self.mapping.loc['event0'], True)
         self.ev_logger.send(msg)
         super(OPENFIELD_LINEAR, self).log(msg)
-        digital_write(self.mapping.loc['event0'], False)
+        if trigger_event:
+            digital_write(self.mapping.loc['event0'], False)
 
     def trigger_reward(self, module, small, force = True, wait = False):
+        amt = float(self.reward_modules[module].amt.text())
+        amt = amt * float(self.reward_modules[module].small_pulse_frac.text()) if small else amt
+        self.log(f"triggering {amt:.2f} mL reward on module {module}")
         self.reward_modules[module].trigger_reward(small, force, wait)
