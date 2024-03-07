@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import  QHBoxLayout
 from pyBehavior.gui import *
-from pyBehavior.interfaces.rpi import *
+from pyBehavior.interfaces.rpi.remote import *
 from pyBehavior.interfaces.ni import *
 from pyBehavior.interfaces.socket import Position
 from pyBehavior.interfaces.socket import EventstringSender
@@ -31,7 +31,10 @@ class OPENFIELD_LINEAR(SetupGUI):
         self.layout.addWidget(self.pump1)
 
         self.mod1 = RPIRewardControl(self.client, 'module1')
+        self.mod1.new_licks.connect(lambda x: self.register_lick('a', x))
         self.mod2 = RPIRewardControl(self.client, 'module2')
+        self.mod2.new_licks.connect(lambda x: self.register_lick('b', x))
+
         self.reward_modules.update({'a': self.mod1, 
                                     'b': self.mod2})
 
@@ -40,16 +43,6 @@ class OPENFIELD_LINEAR(SetupGUI):
         mod_layout.addWidget(self.mod1)
         mod_layout.addWidget(self.mod2)
         self.layout.addLayout(mod_layout)
-
-        # start digital input threads
-        # threads to monitor licking
-        self.lick1_thread = RPILickThread(self.client, "module1")
-        self.lick1_thread.lick_num_updated.connect(lambda x: self.register_lick('a', x))
-        self.lick1_thread.start()
-
-        self.lick2_thread = RPILickThread(self.client, "module2")
-        self.lick2_thread.lick_num_updated.connect(lambda x: self.register_lick('b', x))
-        self.lick2_thread.start()
 
     def register_lick(self, arm, amt):
         if self.running:

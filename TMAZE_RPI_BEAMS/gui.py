@@ -1,4 +1,4 @@
-from pyBehavior.interfaces.rpi import *
+from pyBehavior.interfaces.rpi.remote import *
 from pyBehavior.interfaces.ni import *
 from PyQt5.QtWidgets import  QSpacerItem, QPushButton, QVBoxLayout, QHBoxLayout, QSizePolicy, QGridLayout, QButtonGroup
 from pyBehavior.interfaces.socket import EventstringSender
@@ -108,8 +108,11 @@ class TMAZE_RPI_BEAMS(SetupGUI):
 
         # valve widgets
         self.stem_valve = RPIRewardControl(self.client, 'module4')
+        self.stem_valve.new_licks.connect(lambda x: self.register_lick('stem', x))
         self.b_valve = RPIRewardControl(self.client, 'module3')
+        self.b_valve.new_licks.connect(lambda x: self.register_lick('b', x))
         self.a_valve = RPIRewardControl(self.client, 'module5')
+        self.a_valve.new_licks.connect(lambda x: self.register_lick('a', x))
         
         self.reward_modules.update({'a': self.a_valve, 
                                     'b': self.b_valve, 
@@ -139,19 +142,6 @@ class TMAZE_RPI_BEAMS(SetupGUI):
         self.trial_lick_n = 0
         self.prev_lick = datetime.now()
         self.bout_thresh = 1
-
-        self.b_lick_thread = RPILickThread(self.client, 'module3')
-        self.b_lick_thread.lick_num_updated.connect(lambda x: self.register_lick('b', x))
-
-        self.stem_lick_thread = RPILickThread(self.client, 'module4')
-        self.stem_lick_thread.lick_num_updated.connect(lambda x: self.register_lick('stem', x))
-
-        self.a_lick_thread = RPILickThread(self.client, 'module5')
-        self.a_lick_thread.lick_num_updated.connect(lambda x: self.register_lick('a', x))
-
-        self.b_lick_thread.start()
-        self.stem_lick_thread.start()
-        self.a_lick_thread.start()
 
         for i in range(1,8):
             digital_write(self.doors.loc[f"door{i}",'port'], True)
