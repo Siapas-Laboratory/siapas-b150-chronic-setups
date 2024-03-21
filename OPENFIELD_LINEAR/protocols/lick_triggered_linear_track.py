@@ -1,10 +1,8 @@
 from statemachine import State
-from PyQt5.QtCore import  QTimer, QThread, pyqtSignal, QObject
+from PyQt5.QtCore import  QTimer
 from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QLabel
 from datetime import datetime
-import numpy as np
 from pyBehavior.protocols import Protocol
-import json
 
 
 class lick_triggered_linear_track(Protocol):
@@ -16,19 +14,19 @@ class lick_triggered_linear_track(Protocol):
     b_waiting = State("b_waiting")
 
 
-    lickA =  ( sleep.to(a_licking,after = "increment_lap") 
-               | a_waiting.to(a_licking)
-               | a_licking.to.itself(cond = "sub_thresh") 
-               | a_licking.to(b_waiting, on = "deliver_reward",after = "increment_lap")
-               | b_licking.to(a_licking, after = "increment_lap")
+    lickA =  ( sleep.to(a_licking, after = "increment_lap", before = "increment_a") 
+               | a_waiting.to(a_licking,  before = "increment_a")
+               | a_licking.to.itself(cond = "sub_thresh", before = "increment_a") 
+               | a_licking.to(b_waiting, before = "increment_a", on = "deliver_reward", after = "increment_lap")
+               | b_licking.to(a_licking, after = "increment_lap", before = "increment_a")
                | b_waiting.to.itself()
     )
 
-    lickB =  ( sleep.to(b_licking,after = "increment_lap") 
-               | b_waiting.to(b_licking)
-               | b_licking.to.itself(cond = "sub_thresh") 
-               | b_licking.to(a_waiting, on = "deliver_reward", after = "increment_lap")
-               | a_licking.to(b_licking, after = "increment_lap")
+    lickB =  ( sleep.to(b_licking, before = "increment_b", after = "increment_lap") 
+               | b_waiting.to(b_licking, before = "increment_b")
+               | b_licking.to.itself(cond = "sub_thresh", before = "increment_b") 
+               | b_licking.to(a_waiting, before = "increment_b", on = "deliver_reward", after = "increment_lap")
+               | a_licking.to(b_licking, before = "increment_b", after = "increment_lap")
                | a_waiting.to.itself()
     )
 
@@ -40,36 +38,31 @@ class lick_triggered_linear_track(Protocol):
             idx = self.parent.reward_modules[i].trigger_mode.findText("No Trigger")
             self.parent.reward_modules[i].trigger_mode.setCurrentIndex(idx)
         self.lick_action_map = {"a": self.lickA, "b": self.lickB}
-        self.licks = {"a": 0, "b": 0}
 
     def increment_lap(self):
-        self.tracker.tot_laps_n += 1
-        self.tracker.tot_laps.setText(f"Total Laps: {self.tracker.tot_laps_n//2}")
+        self.tracker.increment_lap()
 
-    def increment_lick(self, arm, val = 1):
-        self.licks[arm] += val
-        if arm == "a":
-            self.licks["b"] = 0
-        else:
-            self.licks["a"] = 0
+    def increment_a(self):
+        self.tracker.increment_a()
+    
+    def increment_b(self):
+        self.tracker.increment_b()
 
     def sub_thresh(self):
         arm = self.current_state.id[0]
-        return (self.licks[arm] + 1) < float(self.parent.reward_modules[arm].reward_thresh.text())
+        return (self.tracker.licks[arm] + 1) < float(self.parent.reward_modules[arm].reward_thresh.text())
 
     def handle_input(self, sm_input):
         if sm_input['type'] == "lick":
             if sm_input['arm'] in self.lick_action_map:
-                self.lick_action_map[sm_input["arm"]]()
-                self.increment_lick(sm_input["arm"], val =sm_input["amt"] )
+                for _ in range(sm_input["amt"]):
+                    self.lick_action_map[sm_input["arm"]]()
 
     def deliver_reward(self):
         arm = self.current_state.id[0]
         self.parent.trigger_reward(arm, False, force = True, wait = False)
-        self.tracker.tot_rewards_n += 1
-        self.tracker.tot_rewards.setText(f"Total # Rewards: {self.tracker.tot_rewards_n}")
-        self.tracker.total_reward_amt += float(self.parent.reward_modules[arm].amt.text())
-        self.tracker.total_reward.setText(f"Total Reward: {self.tracker.total_reward_amt:.2f} mL")
+        self.tracker.reset_licks()
+        self.tracker.increment_reward(float(self.parent.reward_modules[arm].amt.text()))
 
 
 class linear_tracker(QMainWindow):
@@ -89,6 +82,10 @@ class linear_tracker(QMainWindow):
         self.exp_time = QLabel(f"Experiment Time: 0.00 s")
         self.current_trial_time = QLabel(f"Current Trial Time: 0.00 s")
 
+        self.licks = {"a": 0, "b": 0}
+        self.lick_a_tracker = QLabel(f"Current A Lick Count: 0")
+        self.lick_b_tracker = QLabel(f"Current B Lick Count: 0")
+
         self.t_start = datetime.now()
         self.current_trial_start = datetime.now()
         self.timer = QTimer()
@@ -99,6 +96,8 @@ class linear_tracker(QMainWindow):
         self.layout.addWidget(self.total_reward)
         self.layout.addWidget(self.exp_time)
         self.layout.addWidget(self.current_trial_time)
+        self.layout.addWidget(self.lick_a_tracker)
+        self.layout.addWidget(self.lick_b_tracker)
 
         container = QWidget()
         container.setLayout(self.layout)
@@ -109,6 +108,36 @@ class linear_tracker(QMainWindow):
     def update_time(self):
         self.exp_time.setText(f"Experiment Time: {(datetime.now() - self.t_start).total_seconds():.2f} s")
         self.current_trial_time.setText(f"Current Trial Time: {(datetime.now() - self.current_trial_start).total_seconds():.2f} s")
+
+    def increment_lap(self):
+        self.current_trial_start = datetime.now()
+        self.tot_laps_n += 1
+        self.tot_laps.setText(f"Total Laps: {self.tot_laps_n//2}")
+
+    def increment_reward(self, amount):
+        self.tot_rewards_n += 1
+        self.tot_rewards.setText(f"Total # Rewards: {self.tot_rewards_n}")
+        self.total_reward_amt += amount
+        self.total_reward.setText(f"Total Reward: {self.total_reward_amt:.2f} mL")
+
+    def increment_a(self):
+        self.licks["a"] += 1
+        self.licks["b"] = 0
+        self.update_licks()
+        
+    def increment_b(self):
+        self.licks["b"] += 1
+        self.licks["a"] = 0
+        self.update_licks()
+
+    def reset_licks(self):
+        self.licks["a"] = 0
+        self.licks["b"] = 0
+        self.update_licks()
+
+    def update_licks(self):
+        self.lick_a_tracker.setText(f"Current A Lick Count: {self.licks['a']}")
+        self.lick_a_tracker.setText(f"Current B Lick Count: {self.licks['b']}")
 
         
 
