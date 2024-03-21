@@ -44,8 +44,6 @@ class SLEEP(SetupGUI):
         if trigger_event:
             digital_write(self.mapping.loc['event0'], False)
 
-    def trigger_reward(self, small = False, force = True, wait = False):
-        amt = float(self.reward_modules['a'].amt.text())
-        amt = amt * float(self.reward_modules['a'].small_pulse_frac.text()) if small else amt
-        self.log(f"triggering {amt:.2f} mL reward")
-        self.reward_modules['a'].trigger_reward(small, force, wait)
+    def trigger_reward(self, amount, force = True, enqueue = False):
+        self.log(f"triggering {amount:.2f} mL reward")
+        self.reward_modules['a'].trigger_reward(amount, force, enqueue)
