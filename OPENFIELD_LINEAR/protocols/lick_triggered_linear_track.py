@@ -1,6 +1,7 @@
 from statemachine import State
 from PyQt5.QtCore import  QTimer
-from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QLabel
+from PyQt5.QtWidgets import QHBoxLayout, QMainWindow, QVBoxLayout, QWidget, QLabel, QLineEdit
+from PyQt5.QtGui import  QDoubleValidator
 from datetime import datetime
 from pyBehavior.protocols import Protocol
 
@@ -34,9 +35,6 @@ class lick_triggered_linear_track(Protocol):
         super(lick_triggered_linear_track, self).__init__(parent)
         self.tracker = linear_tracker()
         self.tracker.show()
-        for i in self.parent.reward_modules:
-            idx = self.parent.reward_modules[i].trigger_mode.findText("No Trigger")
-            self.parent.reward_modules[i].trigger_mode.setCurrentIndex(idx)
         self.lick_action_map = {"a": self.lickA, "b": self.lickB}
 
     def increment_lap(self):
@@ -50,7 +48,7 @@ class lick_triggered_linear_track(Protocol):
 
     def sub_thresh(self):
         arm = self.current_state.id[0]
-        return (self.tracker.licks[arm] + 1) < float(self.parent.reward_modules[arm].reward_thresh.text())
+        return (self.tracker.licks[arm] + 1) < float(self.tracker.thresh[arm].text())
 
     def handle_input(self, sm_input):
         if sm_input['type'] == "lick":
@@ -60,15 +58,41 @@ class lick_triggered_linear_track(Protocol):
 
     def deliver_reward(self):
         arm = self.current_state.id[0]
-        self.parent.trigger_reward(arm, False, force = True, wait = False)
+        self.parent.trigger_reward(arm, float(self.tracker.reward_amount.text()), 
+                                   force = True, wait = False)
         self.tracker.reset_licks()
-        self.tracker.increment_reward(float(self.parent.reward_modules[arm].amt.text()))
+        self.tracker.increment_reward()
 
 
 class linear_tracker(QMainWindow):
     def __init__(self):
         super(linear_tracker, self).__init__()
         self.layout = QVBoxLayout()
+
+        reward_amount_layout = QHBoxLayout()
+        reward_amount_label = QLabel("Reward Amount (mL): ")
+        self.reward_amount = QLineEdit()
+        self.reward_amount.setText("0.2")
+        self.reward_amount.setValidator(QDoubleValidator())
+        reward_amount_layout.addWidget(reward_amount_label)
+        reward_amount_layout.addWidget(self.reward_amount)
+
+        self.thresh = {}
+        a_thresh_layout = QHBoxLayout()
+        a_thresh_label = QLabel("Current Lick Threshold A: ")
+        self.thresh['a'] = QLineEdit()
+        self.thresh['a'].setValidator(QDoubleValidator())
+        self.thresh['a'].setText('3')
+        a_thresh_layout.addWidget(a_thresh_label)
+        a_thresh_layout.addWidget(self.thresh['a'])
+
+        b_thresh_layout = QHBoxLayout()
+        b_thresh_label = QLabel("Current Lick Threshold B: ")
+        self.thresh['b'] = QLineEdit()
+        self.thresh['a'].setValidator(QDoubleValidator())
+        self.thresh['b'].setText('5')
+        b_thresh_layout.addWidget(b_thresh_label)
+        b_thresh_layout.addWidget(self.thresh['b'])
 
         self.tot_laps = QLabel(f"Total Laps: 0")
         self.tot_laps_n = 0   
@@ -93,10 +117,13 @@ class linear_tracker(QMainWindow):
         
         self.layout.addWidget(self.tot_laps)
         self.layout.addWidget(self.tot_rewards)
+        self.layout.addLayout(reward_amount_layout)
         self.layout.addWidget(self.total_reward)
         self.layout.addWidget(self.exp_time)
         self.layout.addWidget(self.current_trial_time)
+        self.layout.addLayout(a_thresh_layout)
         self.layout.addWidget(self.lick_a_tracker)
+        self.layout.addLayout(b_thresh_layout)
         self.layout.addWidget(self.lick_b_tracker)
 
         container = QWidget()
@@ -114,7 +141,9 @@ class linear_tracker(QMainWindow):
         self.tot_laps_n += 1
         self.tot_laps.setText(f"Total Laps: {self.tot_laps_n//2}")
 
-    def increment_reward(self, amount):
+    def increment_reward(self, amount = None):
+        if not amount:
+            amount = float(self.reward_amount.text())
         self.tot_rewards_n += 1
         self.tot_rewards.setText(f"Total # Rewards: {self.tot_rewards_n}")
         self.total_reward_amt += amount
