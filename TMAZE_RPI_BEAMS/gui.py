@@ -176,7 +176,3 @@ class TMAZE_RPI_BEAMS(SetupGUI):
 
     def register_beam_detect(self, beam):
         self.beams.loc[beam,'button'].toggle()
-
-    def trigger_reward(self, module, amount, force = True, enqueue = False):
-        self.log(f"triggering {amount:.2f} mL reward on module {module}")
-        self.reward_modules[module].trigger_reward(amount, force, enqueue)

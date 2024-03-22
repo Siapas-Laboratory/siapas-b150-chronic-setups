@@ -43,7 +43,3 @@ class SLEEP(SetupGUI):
         super(SLEEP, self).log(msg)
         if trigger_event:
             digital_write(self.mapping.loc['event0'], False)
-
-    def trigger_reward(self, amount, force = True, enqueue = False):
-        self.log(f"triggering {amount:.2f} mL reward")
-        self.reward_modules['a'].trigger_reward(amount, force, enqueue)
