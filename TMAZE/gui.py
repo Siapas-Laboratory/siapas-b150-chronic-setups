@@ -2,12 +2,12 @@ import logging
 import numpy as np
 from PyQt5.QtWidgets import  QSpacerItem, QPushButton, QVBoxLayout, QHBoxLayout, QSizePolicy, QGridLayout, QButtonGroup
 from pyBehavior.interfaces.ni import NIRewardControl, digital_write
-from pyBehavior.interfaces.socket import EventstringSender
 from pyBehavior.gui import *
 import pandas as pd
 from pathlib import Path
 import time
 from datetime import datetime
+import nidaqmx
 
 
 
@@ -19,8 +19,13 @@ class TMAZE(SetupGUI):
 
     def buildUI(self):
 
-        self.ev_logger = EventstringSender()
-        self.layout.addWidget(self.ev_logger)
+        try:
+            self.event_line = 'event0'
+            ev_logger = self.add_eventstring_handler(self.event_line, self.mapping.loc[self.event_line])
+            self.layout.addWidget(ev_logger)
+        except nidaqmx.errors.DaqNotSupportedError:
+            self.logger.warning("nidaqmx not supported on this device. could not start eventstring handler")
+            self.event_line = None
 
         # organize beams by corresponding arm of the maze
         right_arm = [f'beam{i}' for i in range(1,9)]
@@ -151,9 +156,11 @@ class TMAZE(SetupGUI):
 
         # start digital input daemon
         daemon, daemon_thread = self.init_NIDIDaemon(pd.concat((self.beams.port, self.mapping.loc[["licks_all"]])))
-        daemon.channels.loc['licks_all'].rising_edge.connect(self.register_lick)
+        self.register_state_machine_input(daemon.channels.loc['licks_all'].rising_edge,
+                                          "lick", before = lambda x: self.log(f"lick"))
         for i in self.beams.index:
-            daemon.channels.loc[i].rising_edge.connect(self.register_beam_break)
+            self.register_state_machine_input(self.daemon.channels.loc[i].rising_edge,
+                                              "beam", before = lambda x: self.register_beam_break(x))
             daemon.channels.loc[i].falling_edge.connect(self.register_beam_detect)
 
         daemon_thread.start()
@@ -164,32 +171,19 @@ class TMAZE(SetupGUI):
 
         for i in range(1,8):
             digital_write(self.doors.loc[f"door{i}",'port'], True)
-        
-    def log(self, msg):
-        digital_write(self.mapping.loc['event0'], True)
-        self.ev_logger.send(msg)
-        super(TMAZE, self).log(msg)
-        digital_write(self.mapping.loc['event0'], False)
 
     def toggle_door(self, btn, checked):
         door = btn.text()
         if checked:
-            self.log(f"rasing {door}")
+            self.log(f"rasing {door}", self.event_line)
             digital_write(self.doors.loc[door,'port'], False)
         else:
-            self.log(f"lowering {door}")
+            self.log(f"lowering {door}", self.event_line)
             digital_write(self.doors.loc[door,'port'], True)
-
-    def register_lick(self, data):
-        self.log("lick")
-        if self.running:
-            self.state_machine.handle_input({"type": "lick"})
   
     def register_beam_break(self, beam):
-        if self.running:
-            self.state_machine.handle_input({"type": "beam", "beam": beam})
         self.beams.loc[beam,'button'].toggle()
-        self.log(f"{beam} broken")
+        self.log(f"{beam} broken", self.event_line)
 
     def register_beam_detect(self, beam):
         self.beams.loc[beam,'button'].toggle()

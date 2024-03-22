@@ -3,7 +3,7 @@ from pyBehavior.gui import *
 from pyBehavior.interfaces.rpi import *
 from pyBehavior.interfaces.ni import *
 from pyBehavior.interfaces.socket import Position
-from pyBehavior.interfaces.socket import EventstringSender
+import nidaqmx
 
 class SLEEP(SetupGUI):
     def __init__(self):
@@ -12,8 +12,13 @@ class SLEEP(SetupGUI):
 
     def buildUI(self):
 
-        self.ev_logger = EventstringSender()
-        self.layout.addWidget(self.ev_logger)
+        try:
+            self.event_line = 'event0'
+            ev_logger = self.add_eventstring_handler(self.event_line, self.mapping.loc[self.event_line])
+            self.layout.addWidget(ev_logger)
+        except nidaqmx.errors.DaqNotSupportedError:
+            self.logger.warning("nidaqmx not supported on this device. could not start eventstring handler")
+            self.event_line = None
 
         self.pump1 = PumpConfig(self.client, 'pump1', ['module6'])
         self.layout.addWidget(self.pump1)
@@ -27,19 +32,6 @@ class SLEEP(SetupGUI):
         # start digital input threads
         # threads to monitor licking
         self.lick_thread = RPILickThread(self.client, "module1")
-        self.lick_thread.lick_num_updated.connect(self.register_lick)
+        self.register_state_machine_input(self.mod.new_licks,
+                                          "lick", before = lambda x: self.log(f"{x} licks"))
         self.lick_thread.start()
-
-
-    def register_lick(self, amt):
-        if self.running:
-            self.state_machine.handle_input({"type": "lick", "amt":amt})
-        self.log(f"{amt} licks", trigger_event=False)
-    
-    def log(self, msg, trigger_event = True):
-        if trigger_event:
-            digital_write(self.mapping.loc['event0'], True)
-        self.ev_logger.send(msg)
-        super(SLEEP, self).log(msg)
-        if trigger_event:
-            digital_write(self.mapping.loc['event0'], False)

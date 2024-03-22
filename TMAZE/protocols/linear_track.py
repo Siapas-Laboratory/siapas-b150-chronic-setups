@@ -42,7 +42,7 @@ class linear_track(Protocol):
 
     def handle_input(self, sm_input):
         if sm_input["type"] == "beam":
-            beam = sm_input["beam"]
+            beam = sm_input["data"]
             if beam in self.beams.index:
                 self.beams[beam]()
 

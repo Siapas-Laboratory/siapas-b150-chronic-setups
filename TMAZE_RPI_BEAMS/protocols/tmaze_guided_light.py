@@ -154,7 +154,7 @@ class tmaze_guided_light(Protocol):
 
     def handle_input(self, sm_input):
         if sm_input['type'] == "beam":
-            beam = sm_input['beam']
+            beam = sm_input['data']
             if beam in self.beams.index:
                 self.beams[beam]()
             self.tracker.current_state.setText(f"current state: {self.current_state.id}")

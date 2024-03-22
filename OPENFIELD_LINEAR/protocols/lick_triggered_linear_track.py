@@ -52,9 +52,9 @@ class lick_triggered_linear_track(Protocol):
 
     def handle_input(self, sm_input):
         if sm_input['type'] == "lick":
-            if sm_input['arm'] in self.lick_action_map:
-                for _ in range(sm_input["amt"]):
-                    self.lick_action_map[sm_input["arm"]]()
+            if sm_input['metadata']['arm'] in self.lick_action_map:
+                for _ in range(sm_input["data"]):
+                    self.lick_action_map[sm_input["metadata"]["arm"]]()
 
     def deliver_reward(self):
         arm = self.current_state.id[0]

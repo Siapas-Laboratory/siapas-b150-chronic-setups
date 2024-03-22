@@ -31,7 +31,7 @@ class lick_for_reward_prog(Protocol):
 
     def handle_input(self, sm_input):
         if sm_input['type'] == "lick":
-            for _ in range(sm_input["amt"]):
+            for _ in range(sm_input["data"]):
                 self.lick()
 
     def deliver_reward(self):

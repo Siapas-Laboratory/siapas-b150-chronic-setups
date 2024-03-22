@@ -1,8 +1,7 @@
 from pyBehavior.interfaces.rpi.remote import *
 from pyBehavior.interfaces.ni import *
 from PyQt5.QtWidgets import  QSpacerItem, QPushButton, QVBoxLayout, QHBoxLayout, QSizePolicy, QGridLayout, QButtonGroup
-from pyBehavior.interfaces.socket import EventstringSender
-
+import nidaqmx
 from pyBehavior.gui import *
 
 class TMAZE_RPI_BEAMS(SetupGUI):
@@ -12,8 +11,13 @@ class TMAZE_RPI_BEAMS(SetupGUI):
 
     def buildUI(self):
 
-        self.ev_logger = EventstringSender()
-        self.layout.addWidget(self.ev_logger)
+        try:
+            self.event_line = 'event0'
+            ev_logger = self.add_eventstring_handler(self.event_line, self.mapping.loc[self.event_line])
+            self.layout.addWidget(ev_logger)
+        except nidaqmx.errors.DaqNotSupportedError:
+            self.logger.warning("nidaqmx not supported on this device. could not start eventstring handler")
+            self.event_line = None
 
         # organize beams by corresponding arm of the maze
         right_arm = [f'beam{i}' for i in range(1,9)]
@@ -108,11 +112,17 @@ class TMAZE_RPI_BEAMS(SetupGUI):
 
         # valve widgets
         self.stem_valve = RPIRewardControl(self.client, 'module4')
-        self.stem_valve.new_licks.connect(lambda x: self.register_lick('stem', x))
+        self.register_state_machine_input(self.stem_valve.new_licks,
+                                          "lick", metadata = {"arm": "stem"},
+                                          before = lambda x: self.log(f"stem {x} licks"))
         self.b_valve = RPIRewardControl(self.client, 'module3')
-        self.b_valve.new_licks.connect(lambda x: self.register_lick('b', x))
+        self.register_state_machine_input(self.b_valve.new_licks,
+                                          "lick", metadata = {"arm": "b"},
+                                          before = lambda x: self.log(f"b {x} licks"))        
         self.a_valve = RPIRewardControl(self.client, 'module5')
-        self.a_valve.new_licks.connect(lambda x: self.register_lick('a', x))
+        self.register_state_machine_input(self.a_valve.new_licks,
+                                          "lick", metadata = {"arm": "a"},
+                                          before = lambda x: self.log(f"a {x} licks"))
         
         self.reward_modules.update({'a': self.a_valve, 
                                     'b': self.b_valve, 
@@ -134,7 +144,8 @@ class TMAZE_RPI_BEAMS(SetupGUI):
         # start digital input daemon
         self.daemon, self.daemon_thread = self.init_NIDIDaemon(self.beams.port)
         for i in self.beams.index:
-            self.daemon.channels.loc[i].rising_edge.connect(self.register_beam_break)
+            self.register_state_machine_input(self.daemon.channels.loc[i].rising_edge,
+                                              "beam", before = lambda x: self.register_beam_break(x))
             self.daemon.channels.loc[i].falling_edge.connect(self.register_beam_detect)
 
         self.daemon_thread.start()
@@ -145,34 +156,20 @@ class TMAZE_RPI_BEAMS(SetupGUI):
 
         for i in range(1,8):
             digital_write(self.doors.loc[f"door{i}",'port'], True)
-    
-    def log(self, msg, trigger_event = True):
-        if trigger_event:
-            digital_write(self.mapping.loc['event0'], True)
-        self.ev_logger.send(msg)
-        super(TMAZE_RPI_BEAMS, self).log(msg)
-        if trigger_event:
-            digital_write(self.mapping.loc['event0'], False)
+
 
     def toggle_door(self, btn, checked):
         door = btn.text()
         if checked:
-            self.log(f"rasing {door}")
+            self.log(f"rasing {door}", self.event_line)
             digital_write(self.doors.loc[door,'port'], False)
         else:
-            self.log(f"lowering {door}")
+            self.log(f"lowering {door}", self.event_line)
             digital_write(self.doors.loc[door,'port'], True)
-
-    def register_lick(self, arm, amt):
-        if self.running:
-            self.state_machine.handle_input({"type": "lick", "arm": arm, "amt":amt})
-        self.log(f"{arm} {amt} licks", trigger_event=False)
   
     def register_beam_break(self, beam):
-        if self.running:
-            self.state_machine.handle_input({"type": "beam", "beam": beam})
         self.beams.loc[beam,'button'].toggle()
-        self.log(f"{beam} broken")
+        self.log(f"{beam} broken", self.event_line)
 
     def register_beam_detect(self, beam):
         self.beams.loc[beam,'button'].toggle()
