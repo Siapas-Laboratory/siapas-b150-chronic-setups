@@ -59,7 +59,7 @@ class lick_triggered_linear_track(Protocol):
     def deliver_reward(self):
         arm = self.current_state.id[0]
         self.parent.trigger_reward(arm, float(self.tracker.reward_amount.text()), 
-                                   force = True, wait = False)
+                                   force = True, enqueue = False)
         self.tracker.reset_licks()
         self.tracker.increment_reward()
 
@@ -136,10 +136,11 @@ class linear_tracker(QMainWindow):
         self.exp_time.setText(f"Experiment Time: {(datetime.now() - self.t_start).total_seconds():.2f} s")
         self.current_trial_time.setText(f"Current Trial Time: {(datetime.now() - self.current_trial_start).total_seconds():.2f} s")
 
-    def increment_lap(self):
-        self.current_trial_start = datetime.now()
+    ddef increment_lap(self):
         self.tot_laps_n += 1
-        self.tot_laps.setText(f"Total Laps: {self.tot_laps_n//2}")
+        if self.tot_laps_n%2 == 0:
+            self.current_trial_start = datetime.now()
+            self.tot_laps.setText(f"Total Laps: {self.tot_laps_n//2}")
 
     def increment_reward(self, amount = None):
         if not amount:

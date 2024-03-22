@@ -1,12 +1,14 @@
 from statemachine import StateMachine, State
 from PyQt5.QtCore import  QTimer
-from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QLabel
+from PyQt5.QtWidgets import QHBoxLayout, QLineEdit, QMainWindow, QVBoxLayout, QWidget, QLabel
+from PyQt5.QtGui import  QDoubleValidator
+
 from datetime import datetime
 import pandas as pd
 from pyBehavior.protocols import Protocol
 
 
-class tmaze_semi_guided(Protocol):
+class tmaze_semi_guided_doors(Protocol):
 
     sleep = State("sleep", initial=True)
     stem_reward= State("stem_reward")
@@ -52,7 +54,7 @@ class tmaze_semi_guided(Protocol):
 
 
     def __init__(self, parent):
-        super(tmaze_semi_guided, self).__init__(parent)
+        super(tmaze_semi_guided_doors, self).__init__(parent)
         self.target = None
         self.init = False
         self.beams = pd.Series({'beam8': self.beamB, 
@@ -127,11 +129,14 @@ class tmaze_semi_guided(Protocol):
     def deliver_reward(self):
         self.raise_wall()
         arm = self.current_state.id[0]
-        self.parent.trigger_reward(arm, False)
+        self.parent.trigger_reward(arm, float(self.tracker.reward_amount.text()), force = False, enqueue = True)
+        self.tracker.increment_reward()
 
     def deliver_small_reward(self):
         arm = self.current_state.id[0]
-        self.parent.trigger_reward(arm, True)
+        amt = float(self.tracker.reward_amount.text()) * float(self.tracker.small_rew_frac.text())
+        self.parent.trigger_reward(arm, amt, force = False, enqueue = True)
+        self.tracker.increment_reward(amt)
 
 
     def handle_input(self, sm_input):
@@ -145,6 +150,30 @@ class tmaze_tracker(QMainWindow):
     def __init__(self):
         super(tmaze_tracker, self).__init__()
         self.layout = QVBoxLayout()
+
+        reward_amount_layout = QHBoxLayout()
+        reward_amount_label = QLabel("Reward Amount (mL): ")
+        self.reward_amount = QLineEdit()
+        self.reward_amount.setText("0.2")
+        self.reward_amount.setValidator(QDoubleValidator())
+        reward_amount_layout.addWidget(reward_amount_label)
+        reward_amount_layout.addWidget(self.reward_amount)
+
+        small_rew_layout = QHBoxLayout()
+        small_rew_label = QLabel("Small Reward Fraction: ")
+        self.small_rew_frac = QLineEdit()
+        only_frac = QDoubleValidator(0., 1., 6, notation = QDoubleValidator.StandardNotation)
+        self.small_rew_frac.setText("0.6")
+        self.small_rew_frac.setValidator(only_frac)
+        small_rew_layout.addWidget(small_rew_label)
+        small_rew_layout.addWidget(self.small_rew_frac)
+
+        self.tot_rewards = QLabel(f"Total # Rewards: 0")
+        self.tot_rewards_n = 0
+
+        self.total_reward = QLabel(f"Total Reward: 0.00 mL")
+        self.total_reward_amt = 0
+
         self.trial_count = 0
         self.correct_outbound = 0
         self.trial_count_label = QLabel(f"Trial Count: 0")
@@ -157,10 +186,16 @@ class tmaze_tracker(QMainWindow):
         self.current_trial_start = datetime.now()
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_time)
+
+
         self.layout.addWidget(self.trial_count_label)
         self.layout.addWidget(self.correct_outbound_label)
         self.layout.addWidget(self.current_state)
         self.layout.addWidget(self.target)
+        self.layout.addLayout(reward_amount_layout)
+        self.layout.addLayout(small_rew_layout)
+        self.layout.addWidget(self.tot_rewards)
+        self.layout.addWidget(self.total_reward)
         self.layout.addWidget(self.exp_time)
         self.layout.addWidget(self.current_trial_time)
         container = QWidget()
@@ -172,3 +207,11 @@ class tmaze_tracker(QMainWindow):
     def update_time(self):
         self.exp_time.setText(f"Experiment Time: {(datetime.now() - self.t_start).total_seconds():.2f} s")
         self.current_trial_time.setText(f"Current Trial Time: {(datetime.now() - self.current_trial_start).total_seconds():.2f} s")
+
+    def increment_reward(self, amount = None):
+        if not amount:
+            amount = float(self.reward_amount.text())
+        self.tot_rewards_n += 1
+        self.tot_rewards.setText(f"Total # Rewards: {self.tot_rewards_n}")
+        self.total_reward_amt += amount
+        self.total_reward.setText(f"Total Reward: {self.total_reward_amt:.2f} mL")

@@ -7,19 +7,19 @@ import pandas as pd
 from pyBehavior.protocols import Protocol
 
 
-class tmaze_alternation(Protocol):
+class tmaze_guided_light(Protocol):
 
-    sleep = State("sleep", initial=True)
+    sleep = State("sleep", initial=True, exit = "clear_leds")
     stem_reward= State("stem_reward")
     stem_small_reward = State("stem_small_reward")
 
-    a_reward= State("a_reward")
-    a_no_reward = State("a_no_reward")
-    a_small_reward = State("a_small_reward")
+    a_reward= State("a_reward", enter = "cue_stem")
+    a_no_reward = State("a_no_reward", enter = "cue_stem")
+    a_small_reward = State("a_small_reward", enter = "cue_stem")
 
-    b_reward= State("b_reward")
-    b_no_reward = State("b_no_reward")
-    b_small_reward = State("b_small_reward")
+    b_reward= State("b_reward", enter = "cue_stem")
+    b_no_reward = State("b_no_reward", enter = "cue_stem")
+    b_small_reward = State("b_small_reward", enter = "cue_stem")
 
     wandering = State("wandering")
 
@@ -62,7 +62,7 @@ class tmaze_alternation(Protocol):
 
 
     def __init__(self, parent):
-        super(tmaze_alternation, self).__init__(parent)
+        super(tmaze_guided_light, self).__init__(parent)
         self.target = None
         self.init = False
         self.beams = pd.Series({'beam8': self.beamB, 
@@ -70,6 +70,7 @@ class tmaze_alternation(Protocol):
                                 'beam17': self.beamS })
         self.tracker = tmaze_tracker()
         self.tracker.show()
+        self.cue_stem()
 
 
     def correct_arm(self, event_data):
@@ -86,7 +87,23 @@ class tmaze_alternation(Protocol):
                 self.tracker.trial_count += 1
                 self.tracker.trial_count_label.setText(f"Trial Count: {self.tracker.trial_count}")
         return correct
+    
+    def clear_leds(self):
+        for i in self.parent.reward_modules:
+            mod = self.parent.reward_modules[i].module
+            led_state = bool(self.parent.client.get(f"modules['{mod}'].LED.on"))
+            if led_state:
+                self.parent.reward_modules[i].toggle_led()
 
+    def cue_stem(self):
+        for i in self.parent.reward_modules:
+            mod = self.parent.reward_modules[i].module
+            led_state = bool(self.parent.client.get(f"modules['{mod}'].LED.on"))
+            if (i != 's') and led_state:
+                self.parent.reward_modules[i].toggle_led()
+            elif (i=='s') and not led_state:
+                self.parent.reward_modules[i].toggle_led()
+        
     def incorrect_arm(self, event_data):
         if self.target is None:
             return False
@@ -113,6 +130,14 @@ class tmaze_alternation(Protocol):
         else:
             self.target = 'b' if self.target=='a' else 'a'
             self.tracker.target.setText(f"target: {self.target}")
+            for i in self.parent.reward_modules:
+                mod = self.parent.reward_modules[i].module
+                led_state = bool(self.parent.client.get(f"modules['{mod}'].LED.on"))
+                if (i != self.target) and led_state:
+                    self.parent.reward_modules[i].toggle_led()
+                elif (i==self.target) and not led_state:
+                    self.parent.reward_modules[i].toggle_led()
+
         self.tracker.current_trial_start = datetime.now()
 
     def deliver_reward(self):
