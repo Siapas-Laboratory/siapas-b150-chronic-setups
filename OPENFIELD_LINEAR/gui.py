@@ -25,7 +25,8 @@ class OPENFIELD_LINEAR(SetupGUI):
 
         self.position = Position()
         self.register_state_machine_input(self.position.new_position,
-                                          "pos", before = lambda x: self.pos.setText(str(x)))
+                                          "pos", before = lambda x: self.pos.setText(str(x)),
+                                          event_line = self.event_line)
         self.position.start()
         self.layout.addWidget(self.position)
 
@@ -35,11 +36,13 @@ class OPENFIELD_LINEAR(SetupGUI):
         self.mod1 = RPIRewardControl(self.client, 'module1')
         self.register_state_machine_input(self.mod1.new_licks,
                                           "lick", metadata = {"arm": "a"},
-                                          before = lambda x: self.log(f" a {x} licks"))
+                                          before = lambda x: self.log(f" a {x} licks"),
+                                          event_line = self.event_line)
         self.mod2 = RPIRewardControl(self.client, 'module2')
         self.register_state_machine_input(self.mod2.new_licks,
                                           "lick", metadata = {"arm": "b"},
-                                          before = lambda x: self.log(f" b {x} licks"))
+                                          before = lambda x: self.log(f" b {x} licks"),
+                                          event_line = self.event_line)
 
         self.reward_modules.update({'a': self.mod1, 
                                     'b': self.mod2})

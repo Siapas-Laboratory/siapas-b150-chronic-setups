@@ -33,5 +33,6 @@ class SLEEP(SetupGUI):
         # threads to monitor licking
         self.lick_thread = RPILickThread(self.client, "module1")
         self.register_state_machine_input(self.mod.new_licks,
-                                          "lick", before = lambda x: self.log(f"{x} licks"))
+                                          "lick", before = lambda x: self.log(f"{x} licks"),
+                                          event_line = self.event_line)
         self.lick_thread.start()

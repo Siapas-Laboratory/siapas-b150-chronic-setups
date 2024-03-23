@@ -114,15 +114,18 @@ class TMAZE_RPI_BEAMS(SetupGUI):
         self.stem_valve = RPIRewardControl(self.client, 'module4')
         self.register_state_machine_input(self.stem_valve.new_licks,
                                           "lick", metadata = {"arm": "stem"},
-                                          before = lambda x: self.log(f"stem {x} licks"))
+                                          before = lambda x: self.log(f"stem {x} licks"),
+                                          event_line = self.event_line)
         self.b_valve = RPIRewardControl(self.client, 'module3')
         self.register_state_machine_input(self.b_valve.new_licks,
                                           "lick", metadata = {"arm": "b"},
-                                          before = lambda x: self.log(f"b {x} licks"))        
+                                          before = lambda x: self.log(f"b {x} licks"),
+                                          event_line = self.event_line)        
         self.a_valve = RPIRewardControl(self.client, 'module5')
         self.register_state_machine_input(self.a_valve.new_licks,
                                           "lick", metadata = {"arm": "a"},
-                                          before = lambda x: self.log(f"a {x} licks"))
+                                          before = lambda x: self.log(f"a {x} licks"),
+                                          event_line = self.event_line)
         
         self.reward_modules.update({'a': self.a_valve, 
                                     'b': self.b_valve, 
@@ -145,7 +148,8 @@ class TMAZE_RPI_BEAMS(SetupGUI):
         self.daemon, self.daemon_thread = self.init_NIDIDaemon(self.beams.port)
         for i in self.beams.index:
             self.register_state_machine_input(self.daemon.channels.loc[i].rising_edge,
-                                              "beam", before = lambda x: self.register_beam_break(x))
+                                              "beam", before = lambda x: self.register_beam_break(x),
+                                              event_line = self.event_line)
             self.daemon.channels.loc[i].falling_edge.connect(self.register_beam_detect)
 
         self.daemon_thread.start()

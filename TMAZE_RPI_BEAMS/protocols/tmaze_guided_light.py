@@ -159,6 +159,7 @@ class tmaze_guided_light(Protocol):
                 self.beams[beam]()
             self.tracker.current_state.setText(f"current state: {self.current_state.id}")
 
+
 class tmaze_tracker(QMainWindow):
     def __init__(self):
         super(tmaze_tracker, self).__init__()
