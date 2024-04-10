@@ -20,10 +20,10 @@ class SLEEP(SetupGUI):
             self.logger.warning("nidaqmx not supported on this device. could not start eventstring handler")
             self.event_line = None
 
-        self.pump1 = PumpConfig(self.client, 'pump1', ['module4'])
+        self.pump1 = PumpConfig(self.client, 'pump1', ['module6'])
         self.layout.addWidget(self.pump1)
 
-        self.mod = RPIRewardControl(self.client, 'module4')
+        self.mod = RPIRewardControl(self.client, 'module6')
         self.reward_modules.update({'a': self.mod})
 
         #format widgets
