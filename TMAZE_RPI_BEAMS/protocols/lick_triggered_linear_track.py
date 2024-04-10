@@ -89,7 +89,7 @@ class linear_tracker(QMainWindow):
         b_thresh_layout = QHBoxLayout()
         b_thresh_label = QLabel("Current Lick Threshold B: ")
         self.thresh['b'] = QLineEdit()
-        self.thresh['a'].setValidator(QDoubleValidator())
+        self.thresh['b'].setValidator(QDoubleValidator())
         self.thresh['b'].setText('5')
         b_thresh_layout.addWidget(b_thresh_label)
         b_thresh_layout.addWidget(self.thresh['b'])

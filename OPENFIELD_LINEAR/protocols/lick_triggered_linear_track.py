@@ -89,7 +89,7 @@ class linear_tracker(QMainWindow):
         b_thresh_layout = QHBoxLayout()
         b_thresh_label = QLabel("Current Lick Threshold B: ")
         self.thresh['b'] = QLineEdit()
-        self.thresh['a'].setValidator(QDoubleValidator())
+        self.thresh['b'].setValidator(QDoubleValidator())
         self.thresh['b'].setText('5')
         b_thresh_layout.addWidget(b_thresh_label)
         b_thresh_layout.addWidget(self.thresh['b'])
@@ -136,7 +136,7 @@ class linear_tracker(QMainWindow):
         self.exp_time.setText(f"Experiment Time: {(datetime.now() - self.t_start).total_seconds():.2f} s")
         self.current_trial_time.setText(f"Current Trial Time: {(datetime.now() - self.current_trial_start).total_seconds():.2f} s")
 
-    ddef increment_lap(self):
+    def increment_lap(self):
         self.tot_laps_n += 1
         if self.tot_laps_n%2 == 0:
             self.current_trial_start = datetime.now()

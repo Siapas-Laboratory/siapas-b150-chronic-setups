@@ -1,6 +1,7 @@
 from statemachine import State
 from PyQt5.QtCore import  QTimer
-from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QLabel
+from PyQt5.QtWidgets import QMainWindow,QHBoxLayout, QVBoxLayout, QWidget, QLabel, QLineEdit
+from PyQt5.QtGui import  QDoubleValidator
 from datetime import datetime
 from pyBehavior.protocols import Protocol
 
@@ -10,24 +11,32 @@ class lick_for_reward_fixed(Protocol):
     waiting = State("waiting", initial=True)
     licking= State("licking")
 
-    lick =  (  waiting.to(licking, before = "increment_lick")
-               | licking.to(licking, cond = "sub_thresh", before = "increment_lick")
-               | licking.to(waiting, before = "increment_lick", after = "deliver_reward")
+    lick =  (  waiting.to(licking, cond= ["armed","sub_thresh"], after = "increment_licks")
+               | waiting.to(waiting, cond = ["armed"], before = "increment_licks", after = "deliver_reward")
+               | waiting.to(waiting, before = "increment_licks", after = "reset_trial_licks")
+               | licking.to(licking, cond = "sub_thresh", before = "increment_licks")
+               | licking.to(waiting, before = "increment_licks", after = "deliver_reward")
     )
 
     def __init__(self, parent):
         super(lick_for_reward_fixed, self).__init__(parent)
-        self.tracker = tracker()
+        self.tracker = tracker(self)
         self.tracker.show()
-        for i in self.parent.reward_modules:
-            idx = self.parent.reward_modules[i].trigger_mode.findText("No Trigger")
-            self.parent.reward_modules[i].trigger_mode.setCurrentIndex(idx)
 
+    def reset_trial_licks(self):
+        self.tracker.reset_trial_licks()
+
+    def armed(self):
+        if self.tracker.last_lick:
+            return (datetime.now() - self.tracker.last_lick).total_seconds() > float(self.tracker.timeout.text())
+        else:
+            return True
+    
     def increment_licks(self):
         self.tracker.increment_licks()
 
     def sub_thresh(self):
-        return (self.tracker.licks + 1) < float(self.parent.reward_modules['a'].reward_thresh.text())
+        return (self.tracker.curr_trial_licks + 1) < float(self.tracker.threshold.text())
 
     def handle_input(self, sm_input):
         if sm_input['type'] == "lick":
@@ -35,17 +44,26 @@ class lick_for_reward_fixed(Protocol):
                 self.lick()
 
     def deliver_reward(self):
-        self.parent.trigger_reward('a', False, force = True, wait = False)
-        self.tracker.increment_reward(float(self.parent.reward_modules['a'].amt.text()))
+        amt =  float(self.tracker.reward_amount.text())
+        self.parent.trigger_reward('a', amt, force = False, enqueue = True)
+        self.tracker.increment_reward(amt)
 
 
 class tracker(QMainWindow):
-    def __init__(self):
+    def __init__(self, parent):
         super(tracker, self).__init__()
+        self.parent = parent
         self.layout = QVBoxLayout()
 
-        self.tot_laps = QLabel(f"Total Laps: 0")
-        self.tot_laps_n = 0   
+        reward_amount_layout = QHBoxLayout()
+        reward_amount_label = QLabel("Reward Amount (mL): ")
+        self.reward_amount = QLineEdit()
+        self.reward_amount.setText("0.2")
+        self.reward_amount.setValidator(QDoubleValidator())
+        self.reward_amount.editingFinished.connect(lambda: self.notify("reward_amount"))
+        reward_amount_layout.addWidget(reward_amount_label)
+        reward_amount_layout.addWidget(self.reward_amount)
+
 
         self.tot_rewards = QLabel(f"Total # Rewards: 0")
         self.tot_rewards_n = 0
@@ -54,23 +72,48 @@ class tracker(QMainWindow):
         self.total_reward_amt = 0
 
         self.exp_time = QLabel(f"Experiment Time: 0.00 s")
-        self.current_trial_time = QLabel(f"Current Trial Time: 0.00 s")
 
         self.licks = 0
-        self.lick_a_tracker = QLabel(f"Current Trial Lick Count: 0")
+        self.lick_tracker = QLabel(f"Lick Count: 0")
+        self.last_lick = None
+        self.last_lick_tracker  = QLabel(f"Last lick: ")
+
+        self.curr_trial_licks = 0
+        self.curr_trial_tracker = QLabel(f"Current Trial Lick Count: {self.curr_trial_licks}")
+
+
+        timeout_layout = QHBoxLayout()
+        timeout_label = QLabel("Timeout (s): ")
+        self.timeout = QLineEdit()
+        self.timeout.setText(f"{10}")
+        self.timeout.setValidator(QDoubleValidator())
+        self.timeout.editingFinished.connect(lambda: self.notify("timeout"))
+        timeout_layout.addWidget(timeout_label)
+        timeout_layout.addWidget(self.timeout)
+
+        thresh_layout = QHBoxLayout()
+        thresh_label = QLabel("Lick threshold: ")
+        self.threshold = QLineEdit(f"{5}")
+        self.threshold.setValidator(QDoubleValidator())
+        self.threshold.editingFinished.connect(lambda: self.notify("threshold"))
+        thresh_layout.addWidget(thresh_label)
+        thresh_layout.addWidget(self.threshold)
+
 
         self.t_start = datetime.now()
         self.current_trial_start = datetime.now()
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_time)
         
-        self.layout.addWidget(self.tot_laps)
+        self.layout.addLayout(reward_amount_layout)
         self.layout.addWidget(self.tot_rewards)
         self.layout.addWidget(self.total_reward)
         self.layout.addWidget(self.exp_time)
-        self.layout.addWidget(self.current_trial_time)
-        self.layout.addWidget(self.lick_a_tracker)
-        self.layout.addWidget(self.lick_b_tracker)
+        self.layout.addWidget(self.lick_tracker)
+        self.layout.addWidget(self.curr_trial_tracker)
+        self.layout.addWidget(self.last_lick_tracker)
+        self.layout.addLayout(timeout_layout)
+        self.layout.addLayout(thresh_layout)
 
         container = QWidget()
         container.setLayout(self.layout)
@@ -78,9 +121,11 @@ class tracker(QMainWindow):
 
         self.timer.start(1000)
 
+    def notify(self, param_name):
+        self.parent.parent.log(f"{param_name} updated to {getattr(self,param_name).text()}")
+
     def update_time(self):
         self.exp_time.setText(f"Experiment Time: {(datetime.now() - self.t_start).total_seconds():.2f} s")
-        self.current_trial_time.setText(f"Current Trial Time: {(datetime.now() - self.current_trial_start).total_seconds():.2f} s")
 
     def increment_reward(self, amount):
         self.current_trial_start = datetime.now()
@@ -88,9 +133,17 @@ class tracker(QMainWindow):
         self.tot_rewards.setText(f"Total # Rewards: {self.tot_rewards_n}")
         self.total_reward_amt += amount
         self.total_reward.setText(f"Total Reward: {self.total_reward_amt:.2f} mL")
+        self.reset_trial_licks()
+    
+    def reset_trial_licks(self):
+        self.curr_trial_licks = 0
+        self.curr_trial_tracker.setText(f"Current Trial Lick Count: {self.curr_trial_licks}")
 
     def increment_licks(self):
         self.licks += 1
-        self.lick_tracker.setText(f"Current Trial Lick Count: {self.licks}")
-        
+        self.curr_trial_licks += 1
+        self.last_lick = datetime.now()
+        self.lick_tracker.setText(f"Lick Count: {self.licks}")
+        self.curr_trial_tracker.setText(f"Current Trial Lick Count: {self.curr_trial_licks}")
+        self.last_lick_tracker.setText(f"Last lick: {datetime.now()}")        
 
