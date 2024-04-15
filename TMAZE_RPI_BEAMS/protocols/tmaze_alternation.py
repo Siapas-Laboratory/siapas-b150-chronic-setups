@@ -5,7 +5,7 @@ from PyQt5.QtGui import  QDoubleValidator
 from datetime import datetime
 import pandas as pd
 from pyBehavior.protocols import Protocol
-
+from pyBehavior.gui import LoggableLineEdit
 
 class tmaze_alternation(Protocol):
 
@@ -68,7 +68,7 @@ class tmaze_alternation(Protocol):
         self.beams = pd.Series({'beam8': self.beamB, 
                                 'beam16': self.beamA, 
                                 'beam17': self.beamS })
-        self.tracker = tmaze_tracker()
+        self.tracker = tmaze_tracker(self)
         self.tracker.show()
 
 
@@ -135,21 +135,21 @@ class tmaze_alternation(Protocol):
             self.tracker.current_state.setText(f"current state: {self.current_state.id}")
 
 class tmaze_tracker(QMainWindow):
-    def __init__(self):
+    def __init__(self, parent):
         super(tmaze_tracker, self).__init__()
         self.layout = QVBoxLayout()
-
+        self.parent = parent
         reward_amount_layout = QHBoxLayout()
         reward_amount_label = QLabel("Reward Amount (mL): ")
-        self.reward_amount = QLineEdit()
+        self.reward_amount = LoggableLineEdit("reward_amount", self.parent.parent)
         self.reward_amount.setText("0.2")
-        self.reward_amount.setValidator(QDoubleValidator())
+        self.reward_amsount.setValidator(QDoubleValidator())
         reward_amount_layout.addWidget(reward_amount_label)
         reward_amount_layout.addWidget(self.reward_amount)
 
         small_rew_layout = QHBoxLayout()
         small_rew_label = QLabel("Small Reward Fraction: ")
-        self.small_rew_frac = QLineEdit()
+        self.small_rew_frac = LoggableLineEdit("small_reward_frac", self.parent.parent)
         only_frac = QDoubleValidator(0., 1., 6, notation = QDoubleValidator.StandardNotation)
         self.small_rew_frac.setText("0.6")
         self.small_rew_frac.setValidator(only_frac)

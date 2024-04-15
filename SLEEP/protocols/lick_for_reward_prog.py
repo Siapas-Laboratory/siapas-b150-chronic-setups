@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import QMainWindow,QHBoxLayout, QVBoxLayout, QWidget, QLabe
 from PyQt5.QtGui import  QDoubleValidator
 from datetime import datetime
 from pyBehavior.protocols import Protocol
+from pyBehavior.gui import LoggableLineEdit
 
 
 class lick_for_reward_prog(Protocol):
@@ -60,12 +61,11 @@ class tracker(QMainWindow):
 
         reward_amount_layout = QHBoxLayout()
         reward_amount_label = QLabel("Reward Amount (mL): ")
-        self.reward_amount = QLineEdit()
+        self.reward_amount = LoggableLineEdit("reward_amount", self.parent.parent)
         self.reward_amount.setText("0.2")
         self.reward_amount.setValidator(QDoubleValidator())
         reward_amount_layout.addWidget(reward_amount_label)
         reward_amount_layout.addWidget(self.reward_amount)
-        self.reward_amount.editingFinished.connect(lambda: self.notify("reward_amount"))
 
 
         self.tot_rewards = QLabel(f"Total # Rewards: 0")
@@ -87,10 +87,9 @@ class tracker(QMainWindow):
 
         timeout_layout = QHBoxLayout()
         timeout_label = QLabel("Timeout (s): ")
-        self.timeout = QLineEdit()
+        self.timeout = LoggableLineEdit("timeout", self.parent.parent)
         self.timeout.setText(f"{5}")
         self.timeout.setValidator(QDoubleValidator())
-        self.timeout.editingFinished.connect(lambda: self.notify("timeout"))
         timeout_layout.addWidget(timeout_label)
         timeout_layout.addWidget(self.timeout)
 
@@ -99,10 +98,9 @@ class tracker(QMainWindow):
 
         update_layout = QHBoxLayout()
         update_label = QLabel("Update Interval")
-        self.update_interval = QLineEdit()
+        self.update_interval = LoggableLineEdit("update_interval", self.parent.parent)
         self.update_interval.setText(f"{10}")
         self.update_interval.setValidator(QDoubleValidator())
-        self.update_interval.editingFinished.connect(lambda: self.notify("update_interval"))
         update_layout.addWidget(update_label)
         update_layout.addWidget(self.update_interval)
 
@@ -128,9 +126,7 @@ class tracker(QMainWindow):
 
         self.timer.start(1000)
 
-    def notify(self, param_name):
-        self.parent.parent.log(f"{param_name} updated to {getattr(self,param_name).text()}")
-
+        
     def update_time(self):
         self.exp_time.setText(f"Experiment Time: {(datetime.now() - self.t_start).total_seconds():.2f} s")
 

@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import QMainWindow,QHBoxLayout, QVBoxLayout, QWidget, QLabe
 from PyQt5.QtGui import  QDoubleValidator
 from datetime import datetime
 from pyBehavior.protocols import Protocol
+from pyBehavior.gui import LoggableLineEdit
 
 
 class lick_for_reward_fixed(Protocol):
@@ -57,10 +58,9 @@ class tracker(QMainWindow):
 
         reward_amount_layout = QHBoxLayout()
         reward_amount_label = QLabel("Reward Amount (mL): ")
-        self.reward_amount = QLineEdit()
+        self.reward_amount = LoggableLineEdit("reward_amount", self.parent.parent)
         self.reward_amount.setText("0.2")
         self.reward_amount.setValidator(QDoubleValidator())
-        self.reward_amount.editingFinished.connect(lambda: self.notify("reward_amount"))
         reward_amount_layout.addWidget(reward_amount_label)
         reward_amount_layout.addWidget(self.reward_amount)
 
@@ -84,18 +84,17 @@ class tracker(QMainWindow):
 
         timeout_layout = QHBoxLayout()
         timeout_label = QLabel("Timeout (s): ")
-        self.timeout = QLineEdit()
+        self.timeout = LoggableLineEdit("timeout", self.parent.parent)
         self.timeout.setText(f"{10}")
         self.timeout.setValidator(QDoubleValidator())
-        self.timeout.editingFinished.connect(lambda: self.notify("timeout"))
         timeout_layout.addWidget(timeout_label)
         timeout_layout.addWidget(self.timeout)
 
         thresh_layout = QHBoxLayout()
         thresh_label = QLabel("Lick threshold: ")
-        self.threshold = QLineEdit(f"{5}")
+        self.threshold = LoggableLineEdit("threshold", self.parent.parent)
+        self.threshold.setText(f"{5}")
         self.threshold.setValidator(QDoubleValidator())
-        self.threshold.editingFinished.connect(lambda: self.notify("threshold"))
         thresh_layout.addWidget(thresh_label)
         thresh_layout.addWidget(self.threshold)
 
@@ -120,9 +119,6 @@ class tracker(QMainWindow):
         self.setCentralWidget(container)
 
         self.timer.start(1000)
-
-    def notify(self, param_name):
-        self.parent.parent.log(f"{param_name} updated to {getattr(self,param_name).text()}")
 
     def update_time(self):
         self.exp_time.setText(f"Experiment Time: {(datetime.now() - self.t_start).total_seconds():.2f} s")

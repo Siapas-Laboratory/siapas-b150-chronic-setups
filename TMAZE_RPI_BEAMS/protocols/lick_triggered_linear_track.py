@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import QHBoxLayout, QMainWindow, QVBoxLayout, QWidget, QLab
 from PyQt5.QtGui import  QDoubleValidator
 from datetime import datetime
 from pyBehavior.protocols import Protocol
+from pyBehavior.gui import LoggableLineEdit
 
 
 class lick_triggered_linear_track(Protocol):
@@ -33,7 +34,7 @@ class lick_triggered_linear_track(Protocol):
 
     def __init__(self, parent):
         super(lick_triggered_linear_track, self).__init__(parent)
-        self.tracker = linear_tracker()
+        self.tracker = linear_tracker(self)
         self.tracker.show()
         self.lick_action_map = {"a": self.lickA, "b": self.lickB}
 
@@ -65,13 +66,13 @@ class lick_triggered_linear_track(Protocol):
 
 
 class linear_tracker(QMainWindow):
-    def __init__(self):
+    def __init__(self, parent):
         super(linear_tracker, self).__init__()
         self.layout = QVBoxLayout()
-
+        self.parent = parent
         reward_amount_layout = QHBoxLayout()
         reward_amount_label = QLabel("Reward Amount (mL): ")
-        self.reward_amount = QLineEdit()
+        self.reward_amount = LoggableLineEdit("reward_amount", self.parent.parent)
         self.reward_amount.setText("0.2")
         self.reward_amount.setValidator(QDoubleValidator())
         reward_amount_layout.addWidget(reward_amount_label)
@@ -80,7 +81,7 @@ class linear_tracker(QMainWindow):
         self.thresh = {}
         a_thresh_layout = QHBoxLayout()
         a_thresh_label = QLabel("Current Lick Threshold A: ")
-        self.thresh['a'] = QLineEdit()
+        self.thresh['a'] = LoggableLineEdit("lick_thresh_a", self.parent.parent)
         self.thresh['a'].setValidator(QDoubleValidator())
         self.thresh['a'].setText('3')
         a_thresh_layout.addWidget(a_thresh_label)
@@ -88,7 +89,7 @@ class linear_tracker(QMainWindow):
 
         b_thresh_layout = QHBoxLayout()
         b_thresh_label = QLabel("Current Lick Threshold B: ")
-        self.thresh['b'] = QLineEdit()
+        self.thresh['b'] = LoggableLineEdit("lick_thresh_b", self.parent.parent)
         self.thresh['b'].setValidator(QDoubleValidator())
         self.thresh['b'].setText('5')
         b_thresh_layout.addWidget(b_thresh_label)

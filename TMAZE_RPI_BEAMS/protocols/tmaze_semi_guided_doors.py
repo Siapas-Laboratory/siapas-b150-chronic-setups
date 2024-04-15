@@ -6,7 +6,7 @@ from PyQt5.QtGui import  QDoubleValidator
 from datetime import datetime
 import pandas as pd
 from pyBehavior.protocols import Protocol
-
+from pyBehavior.gui import LoggableLineEdit
 
 class tmaze_semi_guided_doors(Protocol):
 
@@ -63,7 +63,7 @@ class tmaze_semi_guided_doors(Protocol):
         for i in range(1,8):
             self.parent.doors.loc[f'door{i}', 'button'].setChecked(False)
 
-        self.tracker = tmaze_tracker()
+        self.tracker = tmaze_tracker(self)
         self.tracker.show()
 
     def block_b(self):
@@ -153,7 +153,7 @@ class tmaze_tracker(QMainWindow):
 
         reward_amount_layout = QHBoxLayout()
         reward_amount_label = QLabel("Reward Amount (mL): ")
-        self.reward_amount = QLineEdit()
+        self.reward_amount = LoggableLineEdit("reward_amount", self.parent.parent)
         self.reward_amount.setText("0.2")
         self.reward_amount.setValidator(QDoubleValidator())
         reward_amount_layout.addWidget(reward_amount_label)
@@ -161,7 +161,7 @@ class tmaze_tracker(QMainWindow):
 
         small_rew_layout = QHBoxLayout()
         small_rew_label = QLabel("Small Reward Fraction: ")
-        self.small_rew_frac = QLineEdit()
+        self.small_rew_frac = LoggableLineEdit("small_reward_frac", self.parent.parent)
         only_frac = QDoubleValidator(0., 1., 6, notation = QDoubleValidator.StandardNotation)
         self.small_rew_frac.setText("0.6")
         self.small_rew_frac.setValidator(only_frac)

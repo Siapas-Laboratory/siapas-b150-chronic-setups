@@ -5,6 +5,7 @@ from PyQt5.QtGui import  QDoubleValidator
 from datetime import datetime
 import pandas as pd
 from pyBehavior.protocols import Protocol
+from pyBehavior.gui import LoggableLineEdit
 
 class linear_track(Protocol):
 
@@ -27,7 +28,7 @@ class linear_track(Protocol):
         super(linear_track, self).__init__(parent)
         self.beams = pd.Series({'beam8': self.beamB, 
                                 'beam16': self.beamA})
-        self.tracker = linear_tracker()
+        self.tracker = linear_tracker(self)
         self.tracker.show()
 
 
@@ -48,13 +49,13 @@ class linear_track(Protocol):
 
 
 class linear_tracker(QMainWindow):
-    def __init__(self):
+    def __init__(self, parent):
         super(linear_tracker, self).__init__()
         self.layout = QVBoxLayout()
-
+        self.parent = parent
         reward_amount_layout = QHBoxLayout()
         reward_amount_label = QLabel("Reward Amount (mL): ")
-        self.reward_amount = QLineEdit()
+        self.reward_amount = LoggableLineEdit("reward_amount", self.parent.parent)
         self.reward_amount.setText("0.2")
         self.reward_amount.setValidator(QDoubleValidator())
         reward_amount_layout.addWidget(reward_amount_label)
