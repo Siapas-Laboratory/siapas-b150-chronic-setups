@@ -20,10 +20,10 @@ class SLEEP(SetupGUI):
             self.logger.warning("nidaqmx not supported on this device. could not start eventstring handler")
             self.event_line = None
 
-        self.pump1 = PumpConfig(self.client, 'pump1', ['module6'])
+        self.pump1 = PumpConfig(self.client, 'pump1', self,  ['module6'])
         self.layout.addWidget(self.pump1)
 
-        self.mod = RPIRewardControl(self.client, 'module6')
+        self.mod = RPIRewardControl(self.client, 'module6', self)
         self.reward_modules.update({'a': self.mod})
 
         #format widgets
@@ -32,5 +32,5 @@ class SLEEP(SetupGUI):
         # start digital input threads
         # threads to monitor licking
         self.register_state_machine_input(self.mod.new_licks,
-                                          "lick", before = lambda x: self.log(f"{x} licks"),
+                                          "lick", before = lambda x: self.log(f"{x} licks", raise_event_line=False),
                                           event_line = self.event_line)

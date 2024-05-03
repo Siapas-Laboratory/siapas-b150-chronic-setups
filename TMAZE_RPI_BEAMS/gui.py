@@ -111,27 +111,27 @@ class TMAZE_RPI_BEAMS(SetupGUI):
         self.door_button_group.buttonToggled.connect(self.toggle_door)
 
         # valve widgets
-        self.stem_valve = RPIRewardControl(self.client, 'module4')
+        self.stem_valve = RPIRewardControl(self.client, 'module4', self)
         self.register_state_machine_input(self.stem_valve.new_licks,
                                           "lick", metadata = {"arm": "stem"},
-                                          before = lambda x: self.log(f"stem {x} licks"),
+                                          before = lambda x: self.log(f"stem {x} licks",raise_event_line=False),
                                           event_line = self.event_line)
-        self.b_valve = RPIRewardControl(self.client, 'module3')
+        self.b_valve = RPIRewardControl(self.client, 'module3', self)
         self.register_state_machine_input(self.b_valve.new_licks,
                                           "lick", metadata = {"arm": "b"},
-                                          before = lambda x: self.log(f"b {x} licks"),
+                                          before = lambda x: self.log(f"b {x} licks", raise_event_line=False),
                                           event_line = self.event_line)        
-        self.a_valve = RPIRewardControl(self.client, 'module5')
+        self.a_valve = RPIRewardControl(self.client, 'module5', self)
         self.register_state_machine_input(self.a_valve.new_licks,
                                           "lick", metadata = {"arm": "a"},
-                                          before = lambda x: self.log(f"a {x} licks"),
+                                          before = lambda x: self.log(f"a {x} licks", raise_event_line=False),
                                           event_line = self.event_line)
         
         self.reward_modules.update({'a': self.a_valve, 
                                     'b': self.b_valve, 
                                     's': self.stem_valve})
 
-        self.pump1 = PumpConfig(self.client, 'pump1', ['module3', 'module4', 'module5'])
+        self.pump1 = PumpConfig(self.client, 'pump1', self, ['module3', 'module4', 'module5'])
         self.layout.addWidget(self.pump1)
         
         #format widgets

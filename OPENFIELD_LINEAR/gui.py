@@ -30,18 +30,18 @@ class OPENFIELD_LINEAR(SetupGUI):
         self.position.start()
         self.layout.addWidget(self.position)
 
-        self.pump1 = PumpConfig(self.client, 'pump1', ['module1', 'module2'])
+        self.pump1 = PumpConfig(self.client, 'pump1', self, ['module1', 'module2'])
         self.layout.addWidget(self.pump1)
 
-        self.mod1 = RPIRewardControl(self.client, 'module1')
+        self.mod1 = RPIRewardControl(self.client, 'module1', self)
         self.register_state_machine_input(self.mod1.new_licks,
                                           "lick", metadata = {"arm": "a"},
-                                          before = lambda x: self.log(f" a {x} licks"),
+                                          before = lambda x: self.log(f"a {x} licks", raise_event_line=False),
                                           event_line = self.event_line)
-        self.mod2 = RPIRewardControl(self.client, 'module2')
+        self.mod2 = RPIRewardControl(self.client, 'module2', self)
         self.register_state_machine_input(self.mod2.new_licks,
                                           "lick", metadata = {"arm": "b"},
-                                          before = lambda x: self.log(f" b {x} licks"),
+                                          before = lambda x: self.log(f"b {x} licks", raise_event_line=False),
                                           event_line = self.event_line)
 
         self.reward_modules.update({'a': self.mod1, 

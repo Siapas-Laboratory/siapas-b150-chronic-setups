@@ -5,6 +5,7 @@ from PyQt5.QtGui import  QDoubleValidator
 from datetime import datetime
 from pyBehavior.protocols import Protocol
 from pyBehavior.gui import LoggableLineEdit
+import random
 
 
 class lick_triggered_linear_track(Protocol):
@@ -59,10 +60,15 @@ class lick_triggered_linear_track(Protocol):
 
     def deliver_reward(self):
         arm = self.current_state.id[0]
-        self.parent.trigger_reward(arm, float(self.tracker.reward_amount.text()), 
-                                   force = False, enqueue = True)
+        if random.uniform(0,1) < float(self.tracker.probe_prob.text()):
+            self.parent.log("probe trial", event_line = self.parent.event_line)
+            amt = 0
+        else:
+            self.parent.log("rewarded trial", event_line = self.parent.event_line)
+            amt = float(self.tracker.reward_amount.text())
+        self.parent.trigger_reward(arm, amt, force = False, enqueue = True)
         self.tracker.reset_licks()
-        self.tracker.increment_reward()
+        self.tracker.increment_reward(amount=amt)
 
 
 class linear_tracker(QMainWindow):
@@ -77,6 +83,14 @@ class linear_tracker(QMainWindow):
         self.reward_amount.setValidator(QDoubleValidator())
         reward_amount_layout.addWidget(reward_amount_label)
         reward_amount_layout.addWidget(self.reward_amount)
+
+        probe_prob_layout = QHBoxLayout()
+        probe_prob_label = QLabel("Probe Probability")
+        self.probe_prob = LoggableLineEdit("probe_prob", self.parent.parent)
+        self.probe_prob.setText("0.0")
+        self.probe_prob.setValidator(QDoubleValidator())
+        probe_prob_layout.addWidget(probe_prob_label)
+        probe_prob_layout.addWidget(self.probe_prob)
 
         self.thresh = {}
         a_thresh_layout = QHBoxLayout()
@@ -126,6 +140,7 @@ class linear_tracker(QMainWindow):
         self.layout.addWidget(self.lick_a_tracker)
         self.layout.addLayout(b_thresh_layout)
         self.layout.addWidget(self.lick_b_tracker)
+        self.layout.addLayout(probe_prob_layout)
 
         container = QWidget()
         container.setLayout(self.layout)
