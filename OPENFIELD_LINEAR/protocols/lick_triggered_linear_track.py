@@ -1,10 +1,12 @@
 from statemachine import State
 from PyQt5.QtCore import  QTimer
-from PyQt5.QtWidgets import QHBoxLayout, QMainWindow, QVBoxLayout, QWidget, QLabel, QLineEdit
+from PyQt5.QtWidgets import QHBoxLayout, QMainWindow, QVBoxLayout, QWidget, QLabel, QRadioButton, QButtonGroup
 from PyQt5.QtGui import  QDoubleValidator
 from datetime import datetime
 from pyBehavior.protocols import Protocol
 from pyBehavior.gui import LoggableLineEdit
+import random
+from fractions import Fraction
 
 
 class lick_triggered_linear_track(Protocol):
@@ -59,10 +61,25 @@ class lick_triggered_linear_track(Protocol):
 
     def deliver_reward(self):
         arm = self.current_state.id[0]
-        self.parent.trigger_reward(arm, float(self.tracker.reward_amount.text()), 
-                                   force = True, enqueue = False)
+        probe_override = self.tracker.probe_override[arm].checkedButton().text()
+        if probe_override == "Auto":
+            if len(self.tracker.trial_queues[arm]) == 0:
+                self.tracker.update_trial_queue(arm)
+            if self.tracker.trial_queues[arm].pop(0):
+                self.parent.log("probe trial", event_line = self.parent.event_line)
+                amt = 0
+            else:
+                self.parent.log("rewarded trial", event_line = self.parent.event_line)
+                amt = float(self.tracker.reward_amount.text())
+        elif probe_override == "Force Probe":
+            self.parent.log("probe trial", event_line = self.parent.event_line)
+            amt = 0
+        else:
+            self.parent.log("rewarded trial", event_line = self.parent.event_line)
+            amt = float(self.tracker.reward_amount.text())
+        self.parent.trigger_reward(arm, amt, force = False, enqueue = True)
         self.tracker.reset_licks()
-        self.tracker.increment_reward()
+        self.tracker.increment_reward(amount=amt)
 
 
 class linear_tracker(QMainWindow):
@@ -77,6 +94,54 @@ class linear_tracker(QMainWindow):
         self.reward_amount.setValidator(QDoubleValidator())
         reward_amount_layout.addWidget(reward_amount_label)
         reward_amount_layout.addWidget(self.reward_amount)
+
+        self.probe_prob = {}
+        self.probe_override = {}
+        self.trial_queues = {'a': [], 'b': []}
+
+        a_probe_prob_layout = QHBoxLayout()
+        a_probe_prob_layout.addWidget(QLabel("A Probe Probability [0.05 - 1.0]:"))
+        self.probe_prob['a'] = LoggableLineEdit("probe_prob", self.parent.parent)
+        self.probe_prob['a'].setText("0.2")
+        self.probe_prob['a'].setValidator(QDoubleValidator())
+        self.probe_prob['a'].editingFinished.connect(lambda: self.update_trial_queue('a'))
+        a_probe_prob_layout.addWidget(self.probe_prob['a'])
+
+        a_probe_override_layout = QHBoxLayout()
+        a_probe_override_layout.addWidget(QLabel("A Probe Override:"))
+        self.probe_override['a'] = QButtonGroup()
+        no_probe = QRadioButton("Force No Probe")
+        a_probe_override_layout.addWidget(no_probe)
+        self.probe_override['a'].addButton(no_probe)
+        auto_probe = QRadioButton("Auto")
+        a_probe_override_layout.addWidget(auto_probe)
+        auto_probe.setChecked(True)
+        self.probe_override['a'].addButton(auto_probe)
+        force_probe = QRadioButton("Force Probe")
+        a_probe_override_layout.addWidget(force_probe)
+        self.probe_override['a'].addButton(force_probe)
+
+        b_probe_prob_layout = QHBoxLayout()
+        b_probe_prob_layout.addWidget(QLabel("B Probe Probability [0.05 - 1.0]:"))
+        self.probe_prob['b'] = LoggableLineEdit("probe_prob", self.parent.parent)
+        self.probe_prob['b'].setText("0.2")
+        self.probe_prob['b'].setValidator(QDoubleValidator())
+        self.probe_prob['b'].editingFinished.connect(lambda: self.update_trial_queue('b'))
+        b_probe_prob_layout.addWidget(self.probe_prob['b'])
+
+        b_probe_override_layout = QHBoxLayout()
+        b_probe_override_layout.addWidget(QLabel("B Probe Override:"))
+        self.probe_override['b'] = QButtonGroup()
+        no_probe = QRadioButton("Force No Probe")
+        b_probe_override_layout.addWidget(no_probe)
+        self.probe_override['b'].addButton(no_probe)
+        auto_probe = QRadioButton("Auto")
+        b_probe_override_layout.addWidget(auto_probe)
+        auto_probe.setChecked(True)
+        self.probe_override['b'].addButton(auto_probe)
+        force_probe = QRadioButton("Force Probe")
+        b_probe_override_layout.addWidget(force_probe)
+        self.probe_override['b'].addButton(force_probe)
 
         self.thresh = {}
         a_thresh_layout = QHBoxLayout()
@@ -126,6 +191,10 @@ class linear_tracker(QMainWindow):
         self.layout.addWidget(self.lick_a_tracker)
         self.layout.addLayout(b_thresh_layout)
         self.layout.addWidget(self.lick_b_tracker)
+        self.layout.addLayout(a_probe_prob_layout)
+        self.layout.addLayout(a_probe_override_layout)
+        self.layout.addLayout(b_probe_prob_layout)
+        self.layout.addLayout(b_probe_override_layout)
 
         container = QWidget()
         container.setLayout(self.layout)
@@ -137,6 +206,17 @@ class linear_tracker(QMainWindow):
         self.exp_time.setText(f"Experiment Time: {(datetime.now() - self.t_start).total_seconds():.2f} s")
         self.current_trial_time.setText(f"Current Trial Time: {(datetime.now() - self.current_trial_start).total_seconds():.2f} s")
 
+    def update_trial_queue(self, arm):
+        probe_prob = float(self.probe_prob[arm].text())
+        if 0.05<=probe_prob<=1:
+            n_probes, n_trials = Fraction(probe_prob).limit_denominator(20).as_integer_ratio()
+            q = [i<n_probes for i in range(n_trials)]
+            random.shuffle(q)
+        else:
+            self.parent.parent.logger.warning(f"probe probability for arm {arm} out of range, defaulting to 0")
+            q = [False]
+        self.trial_queues[arm] = q
+
     def increment_lap(self):
         self.tot_laps_n += 1
         if self.tot_laps_n%2 == 0:
@@ -144,9 +224,10 @@ class linear_tracker(QMainWindow):
             self.tot_laps.setText(f"Total Laps: {self.tot_laps_n//2}")
 
     def increment_reward(self, amount = None):
-        if not amount:
+        if amount is None:
             amount = float(self.reward_amount.text())
-        self.tot_rewards_n += 1
+        if amount>0:
+            self.tot_rewards_n += 1
         self.tot_rewards.setText(f"Total # Rewards: {self.tot_rewards_n}")
         self.total_reward_amt += amount
         self.total_reward.setText(f"Total Reward: {self.total_reward_amt:.2f} mL")

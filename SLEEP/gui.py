@@ -12,11 +12,11 @@ class SLEEP(SetupGUI):
 
     def buildUI(self):
 
-        try:
+        if daqmx_supported():
             self.event_line = 'event0'
             ev_logger = self.add_eventstring_handler(self.event_line, self.mapping.loc[self.event_line])
             self.layout.addWidget(ev_logger)
-        except nidaqmx.errors.DaqNotSupportedError:
+        else:
             self.logger.warning("nidaqmx not supported on this device. could not start eventstring handler")
             self.event_line = None
 

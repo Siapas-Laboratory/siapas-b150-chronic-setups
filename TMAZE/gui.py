@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 from PyQt5.QtWidgets import  QSpacerItem, QPushButton, QVBoxLayout, QHBoxLayout, QSizePolicy, QGridLayout, QButtonGroup
-from pyBehavior.interfaces.ni import NIRewardControl, digital_write
+from pyBehavior.interfaces.ni import NIRewardControl, digital_write, daqmx_supported
 from pyBehavior.gui import *
 import pandas as pd
 from pathlib import Path
@@ -15,17 +15,16 @@ class TMAZE(SetupGUI):
 
     def __init__(self):
         super(TMAZE, self).__init__(Path(__file__).parent.resolve())
-        self.buildUI()
+        if daqmx_supported():
+            self.buildUI()
+        else:
+            raise Exception("this setup requires nidaqmx support and nidaqmx is not supported on this device")
 
     def buildUI(self):
 
-        try:
-            self.event_line = 'event0'
-            ev_logger = self.add_eventstring_handler(self.event_line, self.mapping.loc[self.event_line])
-            self.layout.addWidget(ev_logger)
-        except nidaqmx.errors.DaqNotSupportedError:
-            self.logger.warning("nidaqmx not supported on this device. could not start eventstring handler")
-            self.event_line = None
+        self.event_line = 'event0'
+        ev_logger = self.add_eventstring_handler(self.event_line, self.mapping.loc[self.event_line])
+        self.layout.addWidget(ev_logger)
 
         # organize beams by corresponding arm of the maze
         right_arm = [f'beam{i}' for i in range(1,9)]
