@@ -9,6 +9,40 @@ import random
 from fractions import Fraction
 
 
+"""
+TECHNICAL NOTE: for a given probe trial probability p_probe
+we can generate a renewal process that will present
+probe trials at a rate of p_probe per trial by drawing 
+inter-probe trial intervals from any arbitrary distribution.
+parameters for this distribution must be chosen appropriately in 
+order to ensure the process presents probes at the desired rate.
+specifically, according to noting the strong law of renewal processes,
+for a given renewal process with interarival times X_1, X_2, ..., X_n,
+where X_i are iid, the rate of renewal events (lim t-> inf N(t)/t) is described
+as follows
+
+lim t-> inf N(t)/t = 1/E[X] = p_probe
+
+if we let X_i be defined as:
+
+X_i = 1 + Y_i
+Y_i ~ Binom(n,p)
+
+where the 1 accounts for the fact that while in practice we may draw the next inter-probe
+trial interval directly from a binomial distribution after presenting a probe trial,
+the effective inter probe trial intervals can never be 0 (it does not make sense to present multiple
+probes in a single trial).
+
+E[X] = np + 1 = 1/p_probe
+
+let n be some preset constant, then
+
+p = (1/p_probe - 1)/n 
+"""
+
+
+N_BINOM = 200
+
 class lick_triggered_linear_track(Protocol):
 
     sleep = State("sleep", initial=True)
@@ -63,9 +97,7 @@ class lick_triggered_linear_track(Protocol):
         arm = self.current_state.id[0]
         probe_override = self.tracker.probe_override[arm].checkedButton().text()
         if probe_override == "Auto":
-            if len(self.tracker.trial_queues[arm]) == 0:
-                self.tracker.update_trial_queue(arm)
-            if self.tracker.trial_queues[arm].pop(0):
+            if self.tracker.check_probe(arm):
                 self.parent.log("probe trial", event_line = self.parent.event_line)
                 amt = 0
             else:
@@ -97,13 +129,13 @@ class linear_tracker(QMainWindow):
 
         self.probe_prob = {}
         self.probe_override = {}
-        self.trial_queues = {'a': [], 'b': []}
+        self.trials_till_probe = {'a': N_BINOM, 'b': N_BINOM}
 
         a_probe_prob_layout = QHBoxLayout()
-        a_probe_prob_layout.addWidget(QLabel("A Probe Probability"))
+        a_probe_prob_layout.addWidget(QLabel("A Probe Probability [0.05 - 1.0]:"))
         self.probe_prob['a'] = LoggableLineEdit("probe_prob", self.parent.parent)
-        self.probe_prob['a'].setText("0.0")
-        self.probe_prob['a'].setValidator(QDoubleValidator(0.05, 1.0, 6, notation = QDoubleValidator.StandardNotation))
+        self.probe_prob['a'].setText("0.2")
+        self.probe_prob['a'].setValidator(QDoubleValidator())
         self.probe_prob['a'].editingFinished.connect(lambda: self.update_trial_queue('a'))
         a_probe_prob_layout.addWidget(self.probe_prob['a'])
 
@@ -122,11 +154,10 @@ class linear_tracker(QMainWindow):
         self.probe_override['a'].addButton(force_probe)
 
         b_probe_prob_layout = QHBoxLayout()
-        b_probe_prob_layout.addWidget(QLabel("B Probe Probability"))
-        self.probe_prob = {}
+        b_probe_prob_layout.addWidget(QLabel("B Probe Probability [0.05 - 1.0]:"))
         self.probe_prob['b'] = LoggableLineEdit("probe_prob", self.parent.parent)
-        self.probe_prob['b'].setText("0.0")
-        self.probe_prob['b'].setValidator(QDoubleValidator(0.05, 1.0, 6, notation = QDoubleValidator.StandardNotation))
+        self.probe_prob['b'].setText("0.2")
+        self.probe_prob['b'].setValidator(QDoubleValidator())
         self.probe_prob['b'].editingFinished.connect(lambda: self.update_trial_queue('b'))
         b_probe_prob_layout.addWidget(self.probe_prob['b'])
 
@@ -207,12 +238,19 @@ class linear_tracker(QMainWindow):
         self.exp_time.setText(f"Experiment Time: {(datetime.now() - self.t_start).total_seconds():.2f} s")
         self.current_trial_time.setText(f"Current Trial Time: {(datetime.now() - self.current_trial_start).total_seconds():.2f} s")
 
-    def update_trial_queue(self, arm):
-        n_probes, n_trials = Fraction(float(self.probe_prob[arm].text())).limit_denominator(20).as_integer_ratio()
-        q = [False] * n_trials
-        q[:n_probes] = True
-        random.shuffle(q)
-        self.trial_queues[arm] = q
+    def refresh_probe_countdown(self, arm):
+        p_probe = float(self.probe_prob[arm].text())
+        p_binom = 1/(p_probe*N_BINOM)
+        self.trials_till_probe[arm] = random.binomialvariate(n=N_BINOM, p = p_binom)
+
+    def check_probe(self, arm):
+        count = self.trials_till_probe[arm]
+        if count == 0:
+            self.refresh_probe_countdown(arm)
+            return True
+        else:
+            self.trials_till_probe[arm] -= 1
+            return False
 
     def increment_lap(self):
         self.tot_laps_n += 1
