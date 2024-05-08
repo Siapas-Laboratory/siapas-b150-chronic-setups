@@ -5,8 +5,7 @@ from PyQt5.QtGui import  QDoubleValidator
 from datetime import datetime
 from pyBehavior.protocols import Protocol
 from pyBehavior.gui import LoggableLineEdit
-import random
-from fractions import Fraction
+import numpy as np
 
 
 """
@@ -136,7 +135,7 @@ class linear_tracker(QMainWindow):
         self.probe_prob['a'] = LoggableLineEdit("probe_prob", self.parent.parent)
         self.probe_prob['a'].setText("0.2")
         self.probe_prob['a'].setValidator(QDoubleValidator())
-        self.probe_prob['a'].editingFinished.connect(lambda: self.update_trial_queue('a'))
+        self.probe_prob['a'].editingFinished.connect(lambda: self.refresh_probe_countdown('a'))
         a_probe_prob_layout.addWidget(self.probe_prob['a'])
 
         a_probe_override_layout = QHBoxLayout()
@@ -158,7 +157,7 @@ class linear_tracker(QMainWindow):
         self.probe_prob['b'] = LoggableLineEdit("probe_prob", self.parent.parent)
         self.probe_prob['b'].setText("0.2")
         self.probe_prob['b'].setValidator(QDoubleValidator())
-        self.probe_prob['b'].editingFinished.connect(lambda: self.update_trial_queue('b'))
+        self.probe_prob['b'].editingFinished.connect(lambda: self.refresh_probe_countdown('b'))
         b_probe_prob_layout.addWidget(self.probe_prob['b'])
 
         b_probe_override_layout = QHBoxLayout()
@@ -241,7 +240,7 @@ class linear_tracker(QMainWindow):
     def refresh_probe_countdown(self, arm):
         p_probe = float(self.probe_prob[arm].text())
         p_binom = min(1, (1/p_probe - 1)/N_BINOM) if p_probe>0 else 1
-        self.trials_till_probe[arm] = random.binomialvariate(n=N_BINOM, p = p_binom)
+        self.trials_till_probe[arm] = np.random.binomial(n=N_BINOM, p = p_binom)
 
     def check_probe(self, arm):
         count = self.trials_till_probe[arm]
