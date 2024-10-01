@@ -154,18 +154,16 @@ class TMAZE(SetupGUI):
         self.layout.addLayout(vlayout)
 
         # start digital input daemon
-        daemon, daemon_thread = self.init_NIDIDaemon(pd.concat((self.beams.port, self.mapping.loc[["licks_all"]])))
-        self.register_state_machine_input(daemon.channels.loc['licks_all'].rising_edge,
+        self.register_state_machine_input(self.ni_di.loc['licks_all'].rising_edge,
                                           "lick", before = lambda x: self.log(f"lick", raise_event_line=False),
                                           event_line = self.event_line)
         for i in self.beams.index:
-            self.register_state_machine_input(self.daemon.channels.loc[i].rising_edge,
+            self.register_state_machine_input(self.ni_di.loc[i].rising_edge,
                                               "beam", before = lambda x: self.register_beam_break(x),
                                               event_line = self.event_line)
-            daemon.channels.loc[i].falling_edge.connect(self.register_beam_detect)
+            self.ni_di.loc[i].falling_edge.connect(self.register_beam_detect)
 
-        daemon_thread.start()
-
+        self.start_NIDIDaemon()
         self.trial_lick_n = 0
         self.prev_lick = datetime.now()
         self.bout_thresh = 1
