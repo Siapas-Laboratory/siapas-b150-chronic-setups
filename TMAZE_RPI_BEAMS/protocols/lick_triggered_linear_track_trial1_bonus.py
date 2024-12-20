@@ -267,6 +267,7 @@ class linear_tracker(QMainWindow):
         p_probe = float(self.probe_prob[arm].text())
         p_binom = min(1, (1/p_probe - 1)/N_BINOM) if p_probe>0 else 1
         self.trials_till_probe[arm] = np.random.binomial(n=N_BINOM, p = p_binom)
+        self.parent.parent.log(f"{self.trials_till_probe[arm]} trials until next probe on arm {arm}")
 
     def check_probe(self, arm):
         count = self.trials_till_probe[arm]
@@ -275,6 +276,7 @@ class linear_tracker(QMainWindow):
             return True
         else:
             self.trials_till_probe[arm] -= 1
+            self.parent.parent.log(f"{self.trials_till_probe[arm]} trials until next probe on arm {arm}")
             return False
 
 

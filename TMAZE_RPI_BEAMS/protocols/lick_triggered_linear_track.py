@@ -1,10 +1,10 @@
 from statemachine import State
 from PyQt5.QtCore import  QTimer
-from PyQt5.QtWidgets import QHBoxLayout, QMainWindow, QVBoxLayout, QWidget, QLabel, QRadioButton, QButtonGroup
+from PyQt5.QtWidgets import QHBoxLayout, QMainWindow, QVBoxLayout, QWidget, QLabel, QRadioButton, QButtonGroup, QGroupBox
 from PyQt5.QtGui import  QDoubleValidator
 from datetime import datetime
 from pyBehavior.protocols import Protocol
-from pyBehavior.gui import LoggableLineEdit
+from pyBehavior.gui import LoggableLineEdit, Parameter
 import numpy as np
 
 
@@ -75,6 +75,9 @@ class lick_triggered_linear_track(Protocol):
 
     def increment_lap(self):
         self.tracker.increment_lap()
+        if (self.tracker.tot_laps_n//2) == 3:
+            self.tracker.probe_override['a'].button(1).setChecked(True)
+            self.tracker.probe_override['b'].button(1).setChecked(True)
 
     def increment_a(self):
         self.tracker.increment_a()
@@ -110,7 +113,7 @@ class lick_triggered_linear_track(Protocol):
             amt = float(self.tracker.reward_amount.text())
         self.parent.trigger_reward(arm, amt, force = False, enqueue = True)
         self.tracker.reset_licks()
-        self.tracker.increment_reward(amount=amt)
+        self.tracker.increment_reward(arm, amount=amt)
 
 
 class linear_tracker(QMainWindow):
@@ -143,14 +146,14 @@ class linear_tracker(QMainWindow):
         self.probe_override['a'] = QButtonGroup()
         no_probe = QRadioButton("Force No Probe")
         a_probe_override_layout.addWidget(no_probe)
-        self.probe_override['a'].addButton(no_probe)
+        no_probe.setChecked(True)
+        self.probe_override['a'].addButton(no_probe, id=0)
         auto_probe = QRadioButton("Auto")
         a_probe_override_layout.addWidget(auto_probe)
-        auto_probe.setChecked(True)
-        self.probe_override['a'].addButton(auto_probe)
+        self.probe_override['a'].addButton(auto_probe, id=1)
         force_probe = QRadioButton("Force Probe")
         a_probe_override_layout.addWidget(force_probe)
-        self.probe_override['a'].addButton(force_probe)
+        self.probe_override['a'].addButton(force_probe, id=2)
 
         b_probe_prob_layout = QHBoxLayout()
         b_probe_prob_layout.addWidget(QLabel("B Probe Probability [0.05 - 1.0]:"))
@@ -165,14 +168,14 @@ class linear_tracker(QMainWindow):
         self.probe_override['b'] = QButtonGroup()
         no_probe = QRadioButton("Force No Probe")
         b_probe_override_layout.addWidget(no_probe)
-        self.probe_override['b'].addButton(no_probe)
+        no_probe.setChecked(True)
+        self.probe_override['b'].addButton(no_probe, id=0)
         auto_probe = QRadioButton("Auto")
         b_probe_override_layout.addWidget(auto_probe)
-        auto_probe.setChecked(True)
-        self.probe_override['b'].addButton(auto_probe)
+        self.probe_override['b'].addButton(auto_probe, id=1)
         force_probe = QRadioButton("Force Probe")
         b_probe_override_layout.addWidget(force_probe)
-        self.probe_override['b'].addButton(force_probe)
+        self.probe_override['b'].addButton(force_probe, id=2)
 
         self.thresh = {}
         a_thresh_layout = QHBoxLayout()
@@ -191,56 +194,80 @@ class linear_tracker(QMainWindow):
         b_thresh_layout.addWidget(b_thresh_label)
         b_thresh_layout.addWidget(self.thresh['b'])
 
-        self.tot_laps = QLabel(f"Total Laps: 0")
-        self.tot_laps_n = 0   
+        self.tot_laps = Parameter(f"Total Laps")
+        self.tot_laps_n = 0 
+        self.tot_laps.setText('0')  
 
-        self.tot_rewards = QLabel(f"Total # Rewards: 0")
-        self.tot_rewards_n = 0
-
-        self.total_reward = QLabel(f"Total Reward: 0.00 mL")
-        self.total_reward_amt = 0
-
-        self.exp_time = QLabel(f"Experiment Time: 0.00 s")
-        self.current_trial_time = QLabel(f"Current Trial Time: 0.00 s")
+        self.tot_rewards = Parameter(f"Total # Rewards")
+        self.tot_rewards.setText('0')
+        self.total_reward = Parameter(f"Total Reward [mL]")
+        self.total_reward.setText('0')
+        self.tot_arm_reward = {
+            'a': Parameter("Total # A Rewards"),
+            'b': Parameter("Total # B Rewards")
+        }
+        self.tot_arm_reward['a'].setText('0')
+        self.tot_arm_reward['b'].setText('0')
+        self.exp_time = Parameter(f"Experiment Time [min]")
+        self.current_trial_time = Parameter(f"Current Trial Time [s]")
 
         self.licks = {"a": 0, "b": 0}
-        self.lick_a_tracker = QLabel(f"Current A Lick Count: 0")
-        self.lick_b_tracker = QLabel(f"Current B Lick Count: 0")
+        self.lick_a_tracker = Parameter(f"Current A Lick Count")
+        self.lick_a_tracker.setText('0')
+        self.lick_b_tracker = Parameter(f"Current B Lick Count")
+        self.lick_b_tracker.setText('0')
 
         self.t_start = datetime.now()
         self.current_trial_start = datetime.now()
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_time)
         
-        self.layout.addWidget(self.tot_laps)
-        self.layout.addWidget(self.tot_rewards)
-        self.layout.addLayout(reward_amount_layout)
-        self.layout.addWidget(self.total_reward)
-        self.layout.addWidget(self.exp_time)
-        self.layout.addWidget(self.current_trial_time)
-        self.layout.addLayout(a_thresh_layout)
-        self.layout.addWidget(self.lick_a_tracker)
-        self.layout.addLayout(b_thresh_layout)
-        self.layout.addWidget(self.lick_b_tracker)
-        self.layout.addLayout(a_probe_prob_layout)
-        self.layout.addLayout(a_probe_override_layout)
-        self.layout.addLayout(b_probe_prob_layout)
-        self.layout.addLayout(b_probe_override_layout)
+        settings = QGroupBox()
+        slayout = QVBoxLayout()
+        slayout.addLayout(reward_amount_layout)
+        slayout.addLayout(a_thresh_layout)
+        slayout.addLayout(b_thresh_layout)
+        slayout.addLayout(a_probe_prob_layout)
+        slayout.addLayout(a_probe_override_layout)
+        slayout.addLayout(b_probe_prob_layout)
+        slayout.addLayout(b_probe_override_layout)
+        settings.setLayout(slayout)
+        settings.setTitle("Settings")
+        self.layout.addWidget(settings)
+
+        info = QGroupBox()
+        ilayout = QVBoxLayout()
+        ilayout.addWidget(self.tot_laps)
+        ilayout.addWidget(self.tot_rewards)
+        ilayout.addWidget(self.tot_arm_reward['a'])
+        ilayout.addWidget(self.tot_arm_reward['b'])
+        ilayout.addWidget(self.total_reward)
+        ilayout.addWidget(self.lick_a_tracker)
+        ilayout.addWidget(self.lick_b_tracker)
+        ilayout.addWidget(self.exp_time)
+        ilayout.addWidget(self.current_trial_time)
+        info.setLayout(ilayout)
+        info.setTitle("Info")
+        self.layout.addWidget(info)
 
         container = QWidget()
         container.setLayout(self.layout)
         self.setCentralWidget(container)
 
+        self.refresh_probe_countdown('a')
+        self.refresh_probe_countdown('b')
         self.timer.start(1000)
 
+
     def update_time(self):
-        self.exp_time.setText(f"Experiment Time: {(datetime.now() - self.t_start).total_seconds():.2f} s")
-        self.current_trial_time.setText(f"Current Trial Time: {(datetime.now() - self.current_trial_start).total_seconds():.2f} s")
+        self.exp_time.setText(f"{(datetime.now() - self.t_start).total_seconds()/60:.2f}")
+        self.current_trial_time.setText(f"{(datetime.now() - self.current_trial_start).total_seconds():.2f}")
 
     def refresh_probe_countdown(self, arm):
         p_probe = float(self.probe_prob[arm].text())
         p_binom = min(1, (1/p_probe - 1)/N_BINOM) if p_probe>0 else 1
         self.trials_till_probe[arm] = np.random.binomial(n=N_BINOM, p = p_binom)
+        self.parent.parent.log(f"{self.trials_till_probe[arm]} trials until next probe on arm {arm}")
 
     def check_probe(self, arm):
         count = self.trials_till_probe[arm]
@@ -249,22 +276,26 @@ class linear_tracker(QMainWindow):
             return True
         else:
             self.trials_till_probe[arm] -= 1
+            self.parent.parent.log(f"{self.trials_till_probe[arm]} trials until next probe on arm {arm}")
             return False
 
     def increment_lap(self):
         self.tot_laps_n += 1
         if self.tot_laps_n%2 == 0:
             self.current_trial_start = datetime.now()
-            self.tot_laps.setText(f"Total Laps: {self.tot_laps_n//2}")
+            self.tot_laps.setText(f"{self.tot_laps_n//2}")
 
-    def increment_reward(self, amount = None):
+    def increment_reward(self, arm, amount = None):
         if amount is None:
             amount = float(self.reward_amount.text())
+        tot_rewards = float(self.tot_rewards.text())
+        tot_arm_rewards = float(self.tot_arm_reward[arm].text())
         if amount>0:
-            self.tot_rewards_n += 1
-        self.tot_rewards.setText(f"Total # Rewards: {self.tot_rewards_n}")
-        self.total_reward_amt += amount
-        self.total_reward.setText(f"Total Reward: {self.total_reward_amt:.2f} mL")
+            tot_rewards += 1
+            tot_arm_rewards += 1
+        self.tot_rewards.setText(f"{tot_rewards}")
+        self.tot_arm_reward[arm].setText(f"{tot_arm_rewards:.2f}")
+        self.total_reward.setText(f"{float(self.total_reward.text()) + amount:.2f}")
 
     def increment_a(self):
         self.licks["a"] += 1
@@ -282,8 +313,8 @@ class linear_tracker(QMainWindow):
         self.update_licks()
 
     def update_licks(self):
-        self.lick_a_tracker.setText(f"Current A Lick Count: {self.licks['a']}")
-        self.lick_a_tracker.setText(f"Current B Lick Count: {self.licks['b']}")
+        self.lick_a_tracker.setText(f"{self.licks['a']}")
+        self.lick_a_tracker.setText(f"{self.licks['b']}")
 
         
 
