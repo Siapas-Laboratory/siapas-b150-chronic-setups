@@ -10,7 +10,7 @@ import numpy as np
 
 class non_match_position(Protocol):
 
-    sleep = State("sleep", initial=True, exit = "clear_leds")
+    sleep = State("sleep", initial=True)
     stem_reward= State("stem_reward")
     stem_small_reward = State("stem_smzall_reward")
 
@@ -64,7 +64,6 @@ class non_match_position(Protocol):
 
     def __init__(self, parent):
         super(non_match_position, self).__init__(parent)
-        self.target = None
         self.init = False
         self.beams = pd.Series({'beam8': self.beamB, 
                                 'beam16': self.beamA, 
@@ -75,8 +74,6 @@ class non_match_position(Protocol):
 
 
     def correct_arm(self, event_data):
-        if self.target is None:
-            self.target = event_data.target.id[0]
         correct = self.target == event_data.target.id[0]
         if correct:
             if "small" in event_data.target.id:
@@ -104,13 +101,10 @@ class non_match_position(Protocol):
         self.cue_arm('s')
         
     def incorrect_arm(self, event_data):
-        if self.target is None:
-            return False
-        else:
-            incorrect = self.target != event_data.target.id[0]
-            if incorrect:
-                self.parent.log(f"arm {event_data.target.id[0]} incorrect")
-            return incorrect
+        incorrect = self.target != event_data.target.id[0]
+        if incorrect:
+            self.parent.log(f"arm {event_data.target.id[0]} incorrect")
+        return incorrect
     
     def toggle_target(self, event_data):
         if "small" in event_data.target.id:
@@ -120,30 +114,29 @@ class non_match_position(Protocol):
             self.parent.log(f"stem correct")
             self.tracker.correct_inbound.val += 1
             self.deliver_reward()
-        if not self.init:
-            self.init = True
-            return
+        self.tracker.trial_count.val += 1
+        is_probe = (self.tracker.trial_count.val %2) == 1
+        cue = True
+        if is_probe:
+            self.target = 'b' if self.target=='a' else 'a'
+            cue = self.tracker.cue_probe.isChecked()
         else:
-            self.tracker.trial_count.val += 1
-            is_probe = (self.tracker.trial_count.val %2) == 1
-            cue = True
-            if is_probe:
-                self.target = 'b' if self.target=='a' else 'a'
-                cue = self.tracker.cue_probe.isChecked()
-            else:
-                self.target = ['a','b'][np.random.choice(2)]
-            self.tracker.target.setText(f"{self.target}")
-            if cue: self.cue_arm(self.target)
+            self.target = ['a','b'][np.random.choice(2)]
+        self.tracker.target.setText(f"{self.target}")
+        if cue: 
+            self.cue_arm(self.target)
+        else:
+            self.clear_leds()
         self.tracker.current_trial_start = datetime.now()
 
     def deliver_reward(self):
         arm = self.current_state.id[0]
-        self.parent.trigger_reward(arm, self.tracker.reward_amount.val, force = False, enqueue = True)
+        self.parent.trigger_reward(arm, float(self.tracker.reward_amount.text()), force = False, enqueue = True)
         self.tracker.increment_reward()
 
     def deliver_small_reward(self):
         arm = self.current_state.id[0]
-        amt = self.tracker.reward_amount.val * self.tracker.small_rew_frac.val
+        amt = float(self.tracker.reward_amount.text()) * float(self.tracker.small_rew_frac.text())
         self.parent.trigger_reward(arm, amt, force = False, enqueue = True)
         self.tracker.increment_reward(amt)
 
@@ -195,7 +188,7 @@ class tracker(QMainWindow):
 
         self.tot_rewards = Parameter("Total # Rewards", default = 0, is_num = True)
         self.total_reward = Parameter("Total Reward [mL]", default =  0, is_num = True)
-        self.trial_count = Parameter("Trial Count", default=0, is_num=True)
+        self.trial_count = Parameter("Trial Count", default=-1, is_num=True)
         self.correct_outbound = Parameter("# correct outbound", default=0, is_num=True)
         self.correct_inbound = Parameter("# correct inbound", default=0, is_num=True)
         self.current_state = Parameter("current state", default="*waiting to start*")
