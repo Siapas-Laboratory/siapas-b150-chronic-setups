@@ -1,17 +1,18 @@
-from statemachine import StateMachine, State
+from statemachine import State
 from PyQt5.QtCore import  QTimer
-from PyQt5.QtWidgets import QHBoxLayout, QLineEdit, QMainWindow, QVBoxLayout, QWidget, QLabel
+from PyQt5.QtWidgets import QHBoxLayout, QMainWindow, QVBoxLayout, QWidget, QLabel, QGroupBox, QCheckBox
 from PyQt5.QtGui import  QDoubleValidator
 from datetime import datetime
 import pandas as pd
 from pyBehavior.protocols import Protocol
-from pyBehavior.gui import LoggableLineEdit
+from pyBehavior.gui import LoggableLineEdit, Parameter
+import numpy as np
 
 class non_match_position(Protocol):
 
     sleep = State("sleep", initial=True, exit = "clear_leds")
     stem_reward= State("stem_reward")
-    stem_small_reward = State("stem_small_reward")
+    stem_small_reward = State("stem_smzall_reward")
 
     a_reward= State("a_reward", enter = "cue_stem")
     a_no_reward = State("a_no_reward", enter = "cue_stem")
@@ -82,10 +83,7 @@ class non_match_position(Protocol):
                 self.parent.log(f"arm {event_data.target.id[0]} correct but initially incorrect")
             else:
                 self.parent.log(f"arm {event_data.target.id[0]} correct")
-                self.tracker.correct_outbound += 1
-                self.tracker.correct_outbound_label.setText(f"# correct outbound: {self.tracker.correct_outbound}")
-                self.tracker.trial_count += 1
-                self.tracker.trial_count_label.setText(f"Trial Count: {self.tracker.trial_count}")
+                self.tracker.correct_outbound.val += 1
         return correct
     
     def clear_leds(self):
@@ -95,14 +93,15 @@ class non_match_position(Protocol):
             if led_state:
                 self.parent.reward_modules[i].toggle_led()
 
+    def cue_arm(self, arm):
+        self.clear_leds()
+        mod = self.parent.reward_modules[arm]
+        led_state = bool(self.parent.client.get(f"modules['{mod.module}'].LED.on"))
+        if not led_state:
+            mod.toggle_led()
+    
     def cue_stem(self):
-        for i in self.parent.reward_modules:
-            mod = self.parent.reward_modules[i].module
-            led_state = bool(self.parent.client.get(f"modules['{mod}'].LED.on"))
-            if (i != 's') and led_state:
-                self.parent.reward_modules[i].toggle_led()
-            elif (i=='s') and not led_state:
-                self.parent.reward_modules[i].toggle_led()
+        self.cue_arm('s')
         
     def incorrect_arm(self, event_data):
         if self.target is None:
@@ -111,8 +110,6 @@ class non_match_position(Protocol):
             incorrect = self.target != event_data.target.id[0]
             if incorrect:
                 self.parent.log(f"arm {event_data.target.id[0]} incorrect")
-                self.tracker.trial_count += 1
-                self.tracker.trial_count_label.setText(f"Trial Count: {self.tracker.trial_count}")
             return incorrect
     
     def toggle_target(self, event_data):
@@ -121,34 +118,32 @@ class non_match_position(Protocol):
             self.deliver_small_reward()
         else:
             self.parent.log(f"stem correct")
-            self.tracker.correct_inbound += 1
-            self.tracker.correct_inbound_label.setText(f"# correct inbound: {self.tracker.correct_inbound}")
+            self.tracker.correct_inbound.val += 1
             self.deliver_reward()
         if not self.init:
             self.init = True
             return
         else:
-            self.target = 'b' if self.target=='a' else 'a'
-            self.tracker.target.setText(f"target: {self.target}")
-            for i in self.parent.reward_modules:
-                mod = self.parent.reward_modules[i].module
-                led_state = bool(self.parent.client.get(f"modules['{mod}'].LED.on"))
-                if (i != self.target) and led_state:
-                    self.parent.reward_modules[i].toggle_led()
-                elif (i==self.target) and not led_state:
-                    self.parent.reward_modules[i].toggle_led()
-
+            self.tracker.trial_count.val += 1
+            is_probe = (self.tracker.trial_count.val %2) == 1
+            cue = True
+            if is_probe:
+                self.target = 'b' if self.target=='a' else 'a'
+                cue = self.tracker.cue_probe.isChecked()
+            else:
+                self.target = ['a','b'][np.random.choice(2)]
+            self.tracker.target.setText(f"{self.target}")
+            if cue: self.cue_arm(self.target)
         self.tracker.current_trial_start = datetime.now()
 
     def deliver_reward(self):
         arm = self.current_state.id[0]
-        self.parent.trigger_reward(arm, float(self.tracker.reward_amount.text()), force = False, enqueue = True)
+        self.parent.trigger_reward(arm, self.tracker.reward_amount.val, force = False, enqueue = True)
         self.tracker.increment_reward()
-
 
     def deliver_small_reward(self):
         arm = self.current_state.id[0]
-        amt = float(self.tracker.reward_amount.text()) * float(self.tracker.small_rew_frac.text())
+        amt = self.tracker.reward_amount.val * self.tracker.small_rew_frac.val
         self.parent.trigger_reward(arm, amt, force = False, enqueue = True)
         self.tracker.increment_reward(amt)
 
@@ -157,7 +152,7 @@ class non_match_position(Protocol):
             beam = sm_input['data']
             if beam in self.beams.index:
                 self.beams[beam]()
-            self.tracker.current_state.setText(f"current state: {self.current_state.id}")
+            self.tracker.current_state.setText(f"{self.current_state.id}")
 
 
 class tracker(QMainWindow):
@@ -182,53 +177,64 @@ class tracker(QMainWindow):
         small_rew_layout.addWidget(small_rew_label)
         small_rew_layout.addWidget(self.small_rew_frac)
 
-        self.tot_rewards = QLabel(f"Total # Rewards: 0")
-        self.tot_rewards_n = 0
+        cue_probe_layout = QHBoxLayout()
+        cue_probe_layout.addWidget(QLabel("Cue Probe Trials:"))
+        self.cue_probe = QCheckBox()
+        self.cue_probe.setChecked(True)
+        self.cue_probe.stateChanged.connect(self.log_cue_probe)
+        cue_probe_layout.addWidget(self.cue_probe)
 
-        self.total_reward = QLabel(f"Total Reward: 0.00 mL")
-        self.total_reward_amt = 0
+        settings = QGroupBox()
+        slayout = QVBoxLayout()
+        slayout.addLayout(reward_amount_layout)
+        slayout.addLayout(small_rew_layout)
+        slayout.addLayout(cue_probe_layout)
+        settings.setLayout(slayout)
+        self.layout.addWidget(settings)
 
-        self.trial_count = 0
-        self.correct_outbound = 0
-        self.correct_inbound = 0
-        self.trial_count_label = QLabel(f"Trial Count: 0")
-        self.correct_outbound_label = QLabel(f"# correct outbound: 0")
-        self.correct_inbound_label = QLabel(f"# correct inbound: 0")
-        self.current_state = QLabel("current state: *waiting to start*")
-        self.target =  QLabel("target: no target")
-        self.exp_time = QLabel(f"Experiment Time: 0.00 s")
-        self.current_trial_time = QLabel(f"Current Trial Time: 0.00 s")
+
+        self.tot_rewards = Parameter("Total # Rewards", default = 0, is_num = True)
+        self.total_reward = Parameter("Total Reward [mL]", default =  0, is_num = True)
+        self.trial_count = Parameter("Trial Count", default=0, is_num=True)
+        self.correct_outbound = Parameter("# correct outbound", default=0, is_num=True)
+        self.correct_inbound = Parameter("# correct inbound", default=0, is_num=True)
+        self.current_state = Parameter("current state", default="*waiting to start*")
+        self.target =  Parameter("target", default="no target")
+        self.exp_time = Parameter(f"Experiment Time [min]", default = 0, is_num=True)
+        self.current_trial_time = Parameter(f"Current Trial Time [s]", default = 0, is_num=True)
         self.t_start = datetime.now()
         self.current_trial_start = datetime.now()
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_time)
 
+        info = QGroupBox()
+        ilayout = QVBoxLayout()
+        ilayout.addWidget(self.trial_count)
+        ilayout.addWidget(self.correct_outbound)
+        ilayout.addWidget(self.correct_inbound)
+        ilayout.addWidget(self.current_state)
+        ilayout.addWidget(self.target)
+        ilayout.addWidget(self.tot_rewards)
+        ilayout.addWidget(self.total_reward)
+        ilayout.addWidget(self.exp_time)
+        ilayout.addWidget(self.current_trial_time)
+        info.setLayout(ilayout)
+        self.layout.addWidget(info)
 
-        self.layout.addWidget(self.trial_count_label)
-        self.layout.addWidget(self.correct_outbound_label)
-        self.layout.addWidget(self.correct_inbound_label)
-        self.layout.addWidget(self.current_state)
-        self.layout.addWidget(self.target)
-        self.layout.addLayout(reward_amount_layout)
-        self.layout.addLayout(small_rew_layout)
-        self.layout.addWidget(self.tot_rewards)
-        self.layout.addWidget(self.total_reward)
-        self.layout.addWidget(self.exp_time)
-        self.layout.addWidget(self.current_trial_time)
         container = QWidget()
         container.setLayout(self.layout)
         self.setCentralWidget(container)
-
         self.timer.start(1000)
 
+    def log_cue_probe(self, i):
+        self.parent.parent.log(f"cue_probe set to {self.cue_probe.isChecked()}")
+
     def update_time(self):
-        self.exp_time.setText(f"Experiment Time: {(datetime.now() - self.t_start).total_seconds():.2f} s")
-        self.current_trial_time.setText(f"Current Trial Time: {(datetime.now() - self.current_trial_start).total_seconds():.2f} s")
+        self.exp_time.setText(f"{(datetime.now() - self.t_start).total_seconds()/60:.2f}")
+        self.current_trial_time.setText(f"{(datetime.now() - self.current_trial_start).total_seconds():.2f}")
 
     def increment_reward(self, amount = None):
         if not amount:
             amount = float(self.reward_amount.text())
-        self.tot_rewards_n += 1
-        self.tot_rewards.setText(f"Total # Rewards: {self.tot_rewards_n}")
-        self.total_reward_amt += amount
-        self.total_reward.setText(f"Total Reward: {self.total_reward_amt:.2f} mL")
+        self.tot_rewards.val += 1
+        self.total_reward.val += amount
