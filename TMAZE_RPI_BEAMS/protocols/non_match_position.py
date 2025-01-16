@@ -8,6 +8,7 @@ from pyBehavior.protocols import Protocol
 from pyBehavior.gui import LoggableLineEdit, Parameter
 import numpy as np
 from multiprocessing.pool import ThreadPool
+import time
 
 class non_match_position(Protocol):
 
@@ -39,7 +40,7 @@ class non_match_position(Protocol):
 
     beamB =  ( b_baited.to(b_reward, before = "deliver_reward", after = "log_correct") 
                | a_baited.to(b_no_reward, after = "log_incorrect") 
-               | a_no_reward.to(b_small_reward, after = "deliver_small_reward",after = "log_correct")
+               | a_no_reward.to(b_small_reward, before = "deliver_small_reward",after = "log_correct")
                | a_reward.to(wandering) | a_small_reward.to(wandering)
                | sleep.to(wandering) | wandering.to.itself() 
                | b_reward.to.itself() 
@@ -87,7 +88,7 @@ class non_match_position(Protocol):
     
     @property
     def is_probe(self):
-        return (self.tracker.trial_count.val %2) == 1
+        return (self.tracker.trial_count.val %2) == 0
 
     def a_next(self):
         return self.target == 'a'
@@ -121,7 +122,7 @@ class non_match_position(Protocol):
         timeout=None
         self.clear_leds()
         if self.is_probe:
-            cue = self.tracker.cue_probe.isChecked():
+            cue = self.tracker.cue_probe.isChecked()
             if self.tracker.blink_probe_cue.isChecked():
                 timeout = float(self.tracker.probe_cue_blink_time.text())
         if cue: self.cue_arm(self.target, timeout=timeout)
@@ -207,7 +208,7 @@ class tracker(QMainWindow):
         cue_probe_layout.addWidget(self.cue_probe)
 
         blink_probe_cue_layout = QHBoxLayout()
-        cue_probe_layout.addWidget(QLabel("Blink Probe Cue:"))
+        blink_probe_cue_layout.addWidget(QLabel("Blink Probe Cue:"))
         self.blink_probe_cue = QCheckBox()
         self.blink_probe_cue.setChecked(False)
         self.blink_probe_cue.stateChanged.connect(self.log_cue_probe)
@@ -218,6 +219,7 @@ class tracker(QMainWindow):
         self.probe_cue_blink_time = LoggableLineEdit("c", self.parent.parent)
         self.probe_cue_blink_time.setText("5")
         self.probe_cue_blink_time.setValidator(QDoubleValidator())
+        self.probe_cue_blink_time.setEnabled(False)
         blink_time_layout.addWidget(self.probe_cue_blink_time)
 
         settings = QGroupBox()
@@ -225,14 +227,14 @@ class tracker(QMainWindow):
         slayout.addLayout(reward_amount_layout)
         slayout.addLayout(small_rew_layout)
         slayout.addLayout(cue_probe_layout)
-        slayout.addLayour(blink_probe_cue_layout)
-        slayout.addLayour(blink_time_layout)
+        slayout.addLayout(blink_probe_cue_layout)
+        slayout.addLayout(blink_time_layout)
         settings.setLayout(slayout)
         self.layout.addWidget(settings)
 
         self.tot_rewards = Parameter("Total # Rewards", default = 0, is_num = True)
         self.total_reward = Parameter("Total Reward [mL]", default =  0, is_num = True)
-        self.trial_count = Parameter("Trial Count", default=-1, is_num=True)
+        self.trial_count = Parameter("Trial Count", default=0, is_num=True)
         self.correct_outbound = Parameter("# correct outbound", default=0, is_num=True)
         self.correct_a_probes = Parameter("# correct a probes", default=0, is_num=True)
         self.correct_b_probes = Parameter("# correct b probes", default=0, is_num=True)
