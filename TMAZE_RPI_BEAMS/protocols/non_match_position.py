@@ -28,9 +28,9 @@ class non_match_position(Protocol):
 
     wandering = State("wandering")
 
-    beamA =  ( a_baited.to(a_reward, before = "deliver_reward", after = "log_correct") 
+    beamA =  ( a_baited.to(a_reward, on = "deliver_reward", after = "log_correct") 
                | b_baited.to(a_no_reward, after = "log_incorrect") 
-               | b_no_reward.to(a_small_reward, before = "deliver_small_reward", after = "log_correct")
+               | b_no_reward.to(a_small_reward, on = "deliver_small_reward", after = "log_correct")
                | b_reward.to(wandering) |  b_small_reward.to(wandering)
                | sleep.to(wandering) | wandering.to.itself()
                | a_reward.to.itself() 
@@ -38,9 +38,9 @@ class non_match_position(Protocol):
                | a_small_reward.to.itself()
     )
 
-    beamB =  ( b_baited.to(b_reward, before = "deliver_reward", after = "log_correct") 
+    beamB =  ( b_baited.to(b_reward, on = "deliver_reward", after = "log_correct") 
                | a_baited.to(b_no_reward, after = "log_incorrect") 
-               | a_no_reward.to(b_small_reward, before = "deliver_small_reward",after = "log_correct")
+               | a_no_reward.to(b_small_reward, on = "deliver_small_reward",after = "log_correct")
                | a_reward.to(wandering) | a_small_reward.to(wandering)
                | sleep.to(wandering) | wandering.to.itself() 
                | b_reward.to.itself() 
@@ -146,11 +146,11 @@ class non_match_position(Protocol):
     def toggle_target(self):
         if "small" in self.current_state.id:
             self.parent.log(f"stem correct but initially incorrect")
-            self.deliver_small_reward()
+            self.deliver_small_reward(self.current_state)
         else:
             self.parent.log(f"stem correct")
             self.tracker.correct_inbound.val += 1
-            self.deliver_reward()
+            self.deliver_reward(self.current_state)
         self.tracker.trial_count.val += 1
         if self.is_probe:
             self.target = 'b' if self.target=='a' else 'a'
@@ -158,14 +158,18 @@ class non_match_position(Protocol):
             self.target = ['a','b'][np.random.choice(2)]
         self.tracker.target.setText(f"{self.target}")
 
-    def deliver_reward(self):
-        arm = self.current_state.id[0]
+    def deliver_reward(self, target):
+        arm = target.id[0]
         self.parent.trigger_reward(arm, float(self.tracker.reward_amount.text()), force = False, enqueue = True)
         self.tracker.increment_reward()
 
-    def deliver_small_reward(self):
-        arm = self.current_state.id[0]
-        amt = float(self.tracker.reward_amount.text()) * float(self.tracker.small_rew_frac.text())
+    def deliver_small_reward(self, target):
+        arm = target.id[0]
+        if arm == 's':
+            frac = float(self.tracker.stem_small_rew_frac.text())
+        else:
+            frac = float(self.tracker.small_rew_frac.text())
+        amt = float(self.tracker.reward_amount.text()) * frac
         self.parent.trigger_reward(arm, amt, force = False, enqueue = True)
         self.tracker.increment_reward(amt)
 
@@ -186,7 +190,7 @@ class tracker(QMainWindow):
         reward_amount_layout = QHBoxLayout()
         reward_amount_label = QLabel("Reward Amount (mL): ")
         self.reward_amount = LoggableLineEdit("reward_amount", self.parent.parent)
-        self.reward_amount.setText("0.2")
+        self.reward_amount.setText("0.1")
         self.reward_amount.setValidator(QDoubleValidator())
         reward_amount_layout.addWidget(reward_amount_label)
         reward_amount_layout.addWidget(self.reward_amount)
@@ -195,10 +199,19 @@ class tracker(QMainWindow):
         small_rew_label = QLabel("Small Reward Fraction: ")
         self.small_rew_frac = LoggableLineEdit("small_reward_frac", self.parent.parent)
         only_frac = QDoubleValidator(0., 1., 6, notation = QDoubleValidator.StandardNotation)
-        self.small_rew_frac.setText("0.6")
+        self.small_rew_frac.setText("0.0")
         self.small_rew_frac.setValidator(only_frac)
         small_rew_layout.addWidget(small_rew_label)
         small_rew_layout.addWidget(self.small_rew_frac)
+
+        stem_small_rew_layout = QHBoxLayout()
+        stem_small_rew_label = QLabel("Stem Small Reward Fraction: ")
+        self.stem_small_rew_frac = LoggableLineEdit("stem_small_reward_frac", self.parent.parent)
+        only_frac = QDoubleValidator(0., 1., 6, notation = QDoubleValidator.StandardNotation)
+        self.stem_small_rew_frac.setText("1.0")
+        self.stem_small_rew_frac.setValidator(only_frac)
+        stem_small_rew_layout.addWidget(stem_small_rew_label)
+        stem_small_rew_layout.addWidget(self.stem_small_rew_frac)
 
         cue_probe_layout = QHBoxLayout()
         cue_probe_layout.addWidget(QLabel("Cue Probe Trials:"))
@@ -226,6 +239,7 @@ class tracker(QMainWindow):
         slayout = QVBoxLayout()
         slayout.addLayout(reward_amount_layout)
         slayout.addLayout(small_rew_layout)
+        slayout.addLayout(stem_small_rew_layout)
         slayout.addLayout(cue_probe_layout)
         slayout.addLayout(blink_probe_cue_layout)
         slayout.addLayout(blink_time_layout)
