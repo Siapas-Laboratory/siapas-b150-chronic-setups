@@ -23,6 +23,7 @@ class lick_for_reward_led(Protocol):
 
     def __init__(self, parent):
         super(lick_for_reward_led, self).__init__(parent)
+        self.cue()
         self.tracker = tracker(self)
         self.tracker.show()
     
