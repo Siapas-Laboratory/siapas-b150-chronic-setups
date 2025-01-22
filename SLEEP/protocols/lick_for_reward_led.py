@@ -7,19 +7,28 @@ from datetime import datetime
 from statemachine import State
 import random
 
+
+CONSUMPTION_TIMEOUT = 3
+MAX_VOL = 25
+
 class lick_for_reward_led(Protocol):
     
     armed = State(initial=True)
     not_armed = State()
     licking = State()
+    consuming = State(enter='start_consuming_timeout')
+    end = State()
 
     lick = (armed.to(licking, cond='sub_thresh')| 
-            armed.to(not_armed, on ='reward', after = 'start_timeout') |
+            armed.to(consuming, on ='reward') |
             licking.to.itself(cond='sub_thresh') |
-            licking.to(not_armed, on = 'reward', after = 'start_timeout') |
-            not_armed.to.itself())
+            licking.to(consuming, on = 'reward') |
+            not_armed.to.itself() | consuming.to.itself() | end.to.itself())
     
-    timeout = not_armed.to(armed, on='cue')
+    timeout = (consuming.to(not_armed, cond = ['sub_max_vol'], on = 'start_timeout') | 
+               consuming.to(end) | end.to.itself() |
+               not_armed.to(armed, on='cue'))
+
 
     def __init__(self, parent):
         super(lick_for_reward_led, self).__init__(parent)
@@ -29,6 +38,9 @@ class lick_for_reward_led(Protocol):
     
     def sub_thresh(self):
         return self.tracker.curr_trial_licks.val < float(self.tracker.threshold.text())
+    
+    def sub_max_vol(self):
+        return self.tracker.total_reward.val < MAX_VOL
 
     def cue(self):
         mod = self.parent.reward_modules['a']
@@ -41,6 +53,9 @@ class lick_for_reward_led(Protocol):
         if led_state: mod.toggle_led()
         self.parent.trigger_reward('a', float(self.tracker.reward_amount.text()), force = False, enqueue = True)
         self.tracker.increment_reward()
+
+    def start_consuming_timeout(self):
+        self.start_countdown(CONSUMPTION_TIMEOUT)
 
     def start_timeout(self):
         self.tracker.reset_timeout_timer()
@@ -100,6 +115,10 @@ class tracker(QMainWindow):
         self.total_reward = Parameter("Total Reward [mL]", default = 0, is_num = True)
         self.exp_time = Parameter("Experiment Time [min]", default = 0, is_num = True)
         self.licks = Parameter("Lick Count", default = 0, is_num = True)
+        self.incorrect_licks = Parameter("Total Incorrect Licks", default = 0, is_num = True)
+        self.consumption_licks = Parameter("Total Consumption Licks", default = 0, is_num = True)
+        self.curr_incorrect_licks = Parameter("Current Trial Incorrect Licks", default = 0, is_num = True)
+        self.curr_consumption_licks = Parameter("Current Trial Consumption Licks", default = 0, is_num = True)
         self.curr_trial_licks = Parameter("Current Trial Lick Count", default = 0, is_num = True)
         self.next_trial_countdown = Parameter("Time Until Next Trial [s]", default = 0, is_num = True)
         self.timeout = Parameter("Timeout Period [s]", default = 5, is_num = True)
@@ -110,7 +129,13 @@ class tracker(QMainWindow):
         ilayout.addWidget(self.total_reward)
         ilayout.addWidget(self.exp_time)
         ilayout.addWidget(self.licks)
+        ilayout.addWidget(self.consumption_licks)
+        ilayout.addWidget(self.incorrect_licks)
+        ilayout.addWidget(self.curr_consumption_licks)
+        ilayout.addWidget(self.curr_incorrect_licks)
         ilayout.addWidget(self.curr_trial_licks)
+        ilayout.addWidget(self.next_trial_countdown)
+        ilayout.addWidget(self.timeout)
         info.setLayout(ilayout)
         info.setTitle('Info')
 
@@ -142,8 +167,16 @@ class tracker(QMainWindow):
     
     def reset_trial_licks(self):
         self.curr_trial_licks.val = 0
+        self.curr_consumption_licks.val = 0
+        self.curr_incorrect_licks.val = 0
 
     def increment_licks(self):
         self.licks.val += 1
-        if self.parent.current_state.id != 'not_armed': 
+        if self.parent.current_state.id in ['armed', 'licking']: 
             self.curr_trial_licks.val += 1
+        elif self.parent.current_state.id == 'consuming':
+            self.consumption_licks.val += 1
+            self.curr_consumption_licks.val += 1
+        elif self.parent.current_state.id == 'not_armed':
+            self.incorrect_licks.val += 1
+            self.curr_incorrect_licks.val += 1

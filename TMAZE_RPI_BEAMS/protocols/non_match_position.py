@@ -139,6 +139,11 @@ class non_match_position(Protocol):
                     self.tracker.correct_a_probes.val += 1
                 else:
                     self.tracker.correct_b_probes.val += 1
+            else:
+                if self.target == 'a':
+                    self.tracker.correct_a_cued.val += 1
+                else:
+                    self.tracker.correct_b_cued.val += 1
 
     def log_incorrect(self):
         self.parent.log(f"arm {self.current_state.id[0]} incorrect")
@@ -154,8 +159,16 @@ class non_match_position(Protocol):
         self.tracker.trial_count.val += 1
         if self.is_probe:
             self.target = 'b' if self.target=='a' else 'a'
+            if self.target == 'a':
+                self.tracker.a_probes.val += 1
+            else:
+                self.tracker.b_probes.val += 1
         else:
             self.target = ['a','b'][np.random.choice(2)]
+            if self.target == 'a':
+                self.tracker.a_cued.val += 1
+            else:
+                self.tracker.b_cued.val += 1
         self.tracker.target.setText(f"{self.target}")
 
     def deliver_reward(self, target):
@@ -250,8 +263,6 @@ class tracker(QMainWindow):
         self.total_reward = Parameter("Total Reward [mL]", default =  0, is_num = True)
         self.trial_count = Parameter("Trial Count", default=0, is_num=True)
         self.correct_outbound = Parameter("# correct outbound", default=0, is_num=True)
-        self.correct_a_probes = Parameter("# correct a probes", default=0, is_num=True)
-        self.correct_b_probes = Parameter("# correct b probes", default=0, is_num=True)
         self.correct_inbound = Parameter("# correct inbound", default=0, is_num=True)
         self.current_state = Parameter("current state", default="*waiting to start*")
         self.target =  Parameter("target", default="no target")
@@ -262,12 +273,38 @@ class tracker(QMainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_time)
 
+        a = QGroupBox()
+        alayout = QVBoxLayout()
+        a.setTitle("Arm A")
+        self.correct_a_probes = Parameter("# correct a probes", default=0, is_num=True)
+        self.a_probes = Parameter("# a probes", default=0, is_num=True)
+        self.correct_a_cued = Parameter("# correct a cued", default=0, is_num=True)
+        self.a_cued = Parameter("# a cued", default=0, is_num=True)
+        alayout.addWidget(self.correct_a_probes)
+        alayout.addWidget(self.a_probes)
+        alayout.addWidget(self.correct_a_cued)
+        alayout.addWidget(self.a_cued)
+        a.setLayout(alayout)
+
+        b = QGroupBox()
+        blayout = QVBoxLayout()
+        b.setTitle("Arm B")
+        self.correct_b_probes = Parameter("# correct b probes", default=0, is_num=True)
+        self.b_probes = Parameter("# b probes", default=0, is_num=True)
+        self.correct_b_cued = Parameter("# correct b cued", default=0, is_num=True)
+        self.b_cued = Parameter("# b cued", default=0, is_num=True)
+        blayout.addWidget(self.correct_b_probes)
+        blayout.addWidget(self.b_probes)
+        blayout.addWidget(self.correct_b_cued)
+        blayout.addWidget(self.b_cued)
+        b.setLayout(blayout)
+
         info = QGroupBox()
         ilayout = QVBoxLayout()
+        ilayout.addWidget(a)
+        ilayout.addWidget(b)
         ilayout.addWidget(self.trial_count)
         ilayout.addWidget(self.correct_outbound)
-        ilayout.addWidget(self.correct_a_probes)
-        ilayout.addWidget(self.correct_b_probes)
         ilayout.addWidget(self.correct_inbound)
         ilayout.addWidget(self.current_state)
         ilayout.addWidget(self.target)
@@ -297,7 +334,7 @@ class tracker(QMainWindow):
         self.current_trial_time.setText(f"{(datetime.now() - self.current_trial_start).total_seconds():.2f}")
 
     def increment_reward(self, amount = None):
-        if not amount:
+        if amount is None:
             amount = float(self.reward_amount.text())
         self.tot_rewards.val += 1
         self.total_reward.val += amount
