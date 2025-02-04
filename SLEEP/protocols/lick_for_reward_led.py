@@ -8,8 +8,7 @@ from statemachine import State
 import random
 
 
-CONSUMPTION_TIMEOUT = 3
-MAX_VOL = 25
+CONSUMPTION_TIMEOUT = 10
 
 class lick_for_reward_led(Protocol):
     
@@ -40,7 +39,7 @@ class lick_for_reward_led(Protocol):
         return self.tracker.curr_trial_licks.val < float(self.tracker.threshold.text())
     
     def sub_max_vol(self):
-        return self.tracker.total_reward.val < MAX_VOL
+        return self.tracker.total_reward.val < float(self.tracker.max_vol.text())
 
     def cue(self):
         mod = self.parent.reward_modules['a']
@@ -76,30 +75,37 @@ class tracker(QMainWindow):
         reward_amount_layout = QHBoxLayout()
         reward_amount_label = QLabel("Reward Amount (mL): ")
         self.reward_amount = LoggableLineEdit("reward_amount", self.parent.parent)
-        self.reward_amount.setText("0.2")
+        self.reward_amount.setText("0.1")
         self.reward_amount.setValidator(QDoubleValidator())
         reward_amount_layout.addWidget(reward_amount_label)
         reward_amount_layout.addWidget(self.reward_amount)
 
-
         thresh_layout = QHBoxLayout()
         thresh_label = QLabel("Lick threshold: ")
         self.threshold = LoggableLineEdit("threshold", self.parent.parent)
-        self.threshold.setText(f"{5}")
+        self.threshold.setText(f"{1}")
         self.threshold.setValidator(QDoubleValidator())
         thresh_layout.addWidget(thresh_label)
         thresh_layout.addWidget(self.threshold)
+
+        max_vol_layout = QHBoxLayout()
+        max_vol_label = QLabel("Maximum Volume: ")
+        self.max_vol = LoggableLineEdit("max_vol", self.parent.parent)
+        self.max_vol.setText(f"{10}")
+        self.max_vol.setValidator(QDoubleValidator())
+        max_vol_layout.addWidget(max_vol_label)
+        max_vol_layout.addWidget(self.max_vol)
 
         to_layout = QHBoxLayout()
         to_layout.addWidget(QLabel("Timeout Range [s]:"))
         to_layout.addWidget(QLabel("Min:"))
         self.min_timeout = LoggableLineEdit('min_timeout', self.parent.parent)
-        self.min_timeout.setText(f"{5}")
+        self.min_timeout.setText(f"{3*60}")
         self.min_timeout.setValidator(QDoubleValidator())
         to_layout.addWidget(self.min_timeout)
         to_layout.addWidget(QLabel("Max:"))
         self.max_timeout = LoggableLineEdit('max_timeout', self.parent.parent)
-        self.max_timeout.setText(f"{300}")
+        self.max_timeout.setText(f"{6*60}")
         self.max_timeout.setValidator(QDoubleValidator())
         to_layout.addWidget(self.max_timeout)
 
@@ -108,6 +114,7 @@ class tracker(QMainWindow):
         slayout.addLayout(reward_amount_layout)
         slayout.addLayout(thresh_layout)
         slayout.addLayout(to_layout)
+        slayout.addLayout(max_vol_layout)
         settings.setLayout(slayout)
         settings.setTitle('Settings')
 

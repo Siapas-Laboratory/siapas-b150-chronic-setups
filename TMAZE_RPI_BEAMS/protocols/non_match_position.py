@@ -79,7 +79,7 @@ class non_match_position(Protocol):
         self.beams = pd.Series({'beam8': self.beamB, 
                                 'beam16': self.beamA, 
                                 'beam17': self.beamS,
-                                'beam18': self.beamS2})
+                                'beam22': self.beamS2})
         self.tracker = tracker(self)
         self.tracker.show()
         self.cue_stem()
@@ -99,7 +99,7 @@ class non_match_position(Protocol):
 
     def cue_arm(self, arm, timeout = None):
         mod = self.parent.reward_modules[arm]
-        led_state = bool(self.parent.client.get(f"modules['{mod.module}'].LED.on"))
+        led_state = bool(self.parent.client.get(f"modules['{mod.module}'].LED.on" , channel = 'run'))
         if not led_state:
             mod.toggle_led()
             if timeout is not None:
@@ -109,7 +109,7 @@ class non_match_position(Protocol):
         if delay is not None:
             time.sleep(delay)
         mod = self.parent.reward_modules[arm]
-        led_state = bool(self.parent.client.get(f"modules['{mod.module}'].LED.on"))
+        led_state = bool(self.parent.client.get(f"modules['{mod.module}'].LED.on" , channel = 'run'))
         if led_state:
             mod.toggle_led()
     
@@ -164,7 +164,8 @@ class non_match_position(Protocol):
             else:
                 self.tracker.b_probes.val += 1
         else:
-            self.target = ['a','b'][np.random.choice(2)]
+            a_prob = float(self.tracker.a_prob.text())
+            self.target = ['a','b'][np.random.choice(2, p = [a_prob, 1-a_prob])]
             if self.target == 'a':
                 self.tracker.a_cued.val += 1
             else:
@@ -242,11 +243,19 @@ class tracker(QMainWindow):
 
         blink_time_layout = QHBoxLayout()
         blink_time_layout.addWidget(QLabel("Probe Trial Cue Blink Time [s]:"))
-        self.probe_cue_blink_time = LoggableLineEdit("c", self.parent.parent)
+        self.probe_cue_blink_time = LoggableLineEdit("blink_time", self.parent.parent)
         self.probe_cue_blink_time.setText("5")
         self.probe_cue_blink_time.setValidator(QDoubleValidator())
         self.probe_cue_blink_time.setEnabled(False)
         blink_time_layout.addWidget(self.probe_cue_blink_time)
+
+        a_prob_layout = QHBoxLayout()
+        a_prob_layout.addWidget(QLabel("A Cued Probability [0-1]:"))
+        self.a_prob = LoggableLineEdit("a_prob", self.parent.parent)
+        only_frac = QDoubleValidator(0., 1., 6, notation = QDoubleValidator.StandardNotation)
+        self.a_prob.setText("0.5")
+        self.a_prob.setValidator(only_frac)
+        a_prob_layout.addWidget(self.a_prob)
 
         settings = QGroupBox()
         slayout = QVBoxLayout()
@@ -256,6 +265,7 @@ class tracker(QMainWindow):
         slayout.addLayout(cue_probe_layout)
         slayout.addLayout(blink_probe_cue_layout)
         slayout.addLayout(blink_time_layout)
+        slayout.addLayout(a_prob_layout)
         settings.setLayout(slayout)
         self.layout.addWidget(settings)
 
