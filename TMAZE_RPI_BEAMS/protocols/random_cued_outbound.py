@@ -10,7 +10,7 @@ import numpy as np
 from multiprocessing.pool import ThreadPool
 import time
 
-class random_outbound(Protocol):
+class random_cued_outbound(Protocol):
 
     sleep = State("sleep", initial=True)
     stem_reward= State("stem_reward")
@@ -74,7 +74,7 @@ class random_outbound(Protocol):
 
 
     def __init__(self, parent):
-        super(random_outbound, self).__init__(parent)
+        super(random_cued_outbound, self).__init__(parent)
         self.init = False
         self.beams = pd.Series({'beam8': self.beamB, 
                                 'beam16': self.beamA, 
