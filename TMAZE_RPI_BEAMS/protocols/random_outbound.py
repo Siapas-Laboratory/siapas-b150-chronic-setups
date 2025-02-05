@@ -142,7 +142,7 @@ class random_outbound(Protocol):
         if 'small' in target.id:
             self.deliver_small_reward(target)
         else:
-            self.deliver_reward(taraget)
+            self.deliver_reward(target)
         self.tracker.trial_count.val += 1
         a_prob = float(self.tracker.a_prob.text())
         self.target = ['a','b'][np.random.choice(2, p = [a_prob, 1-a_prob])]
