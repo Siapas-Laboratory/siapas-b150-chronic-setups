@@ -10,7 +10,7 @@ import numpy as np
 from multiprocessing.pool import ThreadPool
 import time
 
-class non_match_position(Protocol):
+class random_outbound(Protocol):
 
     sleep = State("sleep", initial=True)
     stem_reward= State("stem_reward")
@@ -40,7 +40,7 @@ class non_match_position(Protocol):
 
     beamB =  ( b_baited.to(b_reward, on = "deliver_reward", after = "log_correct") 
                | a_baited.to(b_no_reward, after = "log_incorrect") 
-               | a_no_reward.to(b_small_reward, on = "deliver_small_reward",after = "log_correct")
+               | a_no_reward.to(b_small_reward, on = "deliver_small_reward", after = "log_correct")
                | a_reward.to(wandering) | a_small_reward.to(wandering)
                | sleep.to(wandering) | wandering.to.itself() 
                | b_reward.to.itself() 
@@ -74,7 +74,7 @@ class non_match_position(Protocol):
 
 
     def __init__(self, parent):
-        super(non_match_position, self).__init__(parent)
+        super(random_outbound, self).__init__(parent)
         self.init = False
         self.beams = pd.Series({'beam8': self.beamB, 
                                 'beam16': self.beamA, 
@@ -84,11 +84,6 @@ class non_match_position(Protocol):
         self.tracker.show()
         self.cue_stem()
         self.thread_pool = ThreadPool(processes=5)
-
-    
-    @property
-    def is_probe(self):
-        return (self.tracker.trial_count.val %2) == 0
 
     def a_next(self):
         return self.target == 'a'
@@ -118,14 +113,8 @@ class non_match_position(Protocol):
         self.cue_arm('s')
     
     def cue_target(self):
-        cue = True
-        timeout=None
         self.clear_leds()
-        if self.is_probe:
-            cue = self.tracker.cue_probe.isChecked()
-            if self.tracker.blink_probe_cue.isChecked():
-                timeout = float(self.tracker.probe_cue_blink_time.text())
-        if cue: self.cue_arm(self.target, timeout=timeout)
+        self.cue_arm(self.target)
         self.tracker.current_trial_start = datetime.now()
         
     def log_correct(self):
@@ -134,16 +123,10 @@ class non_match_position(Protocol):
         else:
             self.parent.log(f"arm {self.current_state.id[0]} correct")
             self.tracker.correct_outbound.val += 1
-            if self.is_probe:
-                if self.target == 'a':
-                    self.tracker.correct_a_probes.val += 1
-                else:
-                    self.tracker.correct_b_probes.val += 1
+            if self.target == 'a':
+                self.tracker.correct_a_cued.val += 1
             else:
-                if self.target == 'a':
-                    self.tracker.correct_a_cued.val += 1
-                else:
-                    self.tracker.correct_b_cued.val += 1
+                self.tracker.correct_b_cued.val += 1
             self.cue_stem()
 
     def log_incorrect(self):
@@ -159,21 +142,14 @@ class non_match_position(Protocol):
         if 'small' in target.id:
             self.deliver_small_reward(target)
         else:
-            self.deliver_reward(target)
+            self.deliver_reward(taraget)
         self.tracker.trial_count.val += 1
-        if self.is_probe:
-            self.target = 'b' if self.target=='a' else 'a'
-            if self.target == 'a':
-                self.tracker.a_probes.val += 1
-            else:
-                self.tracker.b_probes.val += 1
+        a_prob = float(self.tracker.a_prob.text())
+        self.target = ['a','b'][np.random.choice(2, p = [a_prob, 1-a_prob])]
+        if self.target == 'a':
+            self.tracker.a_cued.val += 1
         else:
-            a_prob = float(self.tracker.a_prob.text())
-            self.target = ['a','b'][np.random.choice(2, p = [a_prob, 1-a_prob])]
-            if self.target == 'a':
-                self.tracker.a_cued.val += 1
-            else:
-                self.tracker.b_cued.val += 1
+            self.tracker.b_cued.val += 1
         self.tracker.target.setText(f"{self.target}")
 
     def deliver_reward(self, target):
@@ -231,28 +207,6 @@ class tracker(QMainWindow):
         stem_small_rew_layout.addWidget(stem_small_rew_label)
         stem_small_rew_layout.addWidget(self.stem_small_rew_frac)
 
-        cue_probe_layout = QHBoxLayout()
-        cue_probe_layout.addWidget(QLabel("Cue Probe Trials:"))
-        self.cue_probe = QCheckBox()
-        self.cue_probe.setChecked(True)
-        self.cue_probe.stateChanged.connect(self.log_cue_probe)
-        cue_probe_layout.addWidget(self.cue_probe)
-
-        blink_probe_cue_layout = QHBoxLayout()
-        blink_probe_cue_layout.addWidget(QLabel("Blink Probe Cue:"))
-        self.blink_probe_cue = QCheckBox()
-        self.blink_probe_cue.setChecked(False)
-        self.blink_probe_cue.stateChanged.connect(self.log_cue_probe)
-        blink_probe_cue_layout.addWidget(self.blink_probe_cue)
-
-        blink_time_layout = QHBoxLayout()
-        blink_time_layout.addWidget(QLabel("Probe Trial Cue Blink Time [s]:"))
-        self.probe_cue_blink_time = LoggableLineEdit("blink_time", self.parent.parent)
-        self.probe_cue_blink_time.setText("5")
-        self.probe_cue_blink_time.setValidator(QDoubleValidator())
-        self.probe_cue_blink_time.setEnabled(False)
-        blink_time_layout.addWidget(self.probe_cue_blink_time)
-
         a_prob_layout = QHBoxLayout()
         a_prob_layout.addWidget(QLabel("A Cued Probability [0-1]:"))
         self.a_prob = LoggableLineEdit("a_prob", self.parent.parent)
@@ -266,9 +220,6 @@ class tracker(QMainWindow):
         slayout.addLayout(reward_amount_layout)
         slayout.addLayout(small_rew_layout)
         slayout.addLayout(stem_small_rew_layout)
-        slayout.addLayout(cue_probe_layout)
-        slayout.addLayout(blink_probe_cue_layout)
-        slayout.addLayout(blink_time_layout)
         slayout.addLayout(a_prob_layout)
         settings.setLayout(slayout)
         self.layout.addWidget(settings)
@@ -290,12 +241,8 @@ class tracker(QMainWindow):
         a = QGroupBox()
         alayout = QVBoxLayout()
         a.setTitle("Arm A")
-        self.correct_a_probes = Parameter("# correct a probes", default=0, is_num=True)
-        self.a_probes = Parameter("# a probes", default=0, is_num=True)
         self.correct_a_cued = Parameter("# correct a cued", default=0, is_num=True)
         self.a_cued = Parameter("# a cued", default=0, is_num=True)
-        alayout.addWidget(self.correct_a_probes)
-        alayout.addWidget(self.a_probes)
         alayout.addWidget(self.correct_a_cued)
         alayout.addWidget(self.a_cued)
         a.setLayout(alayout)
@@ -303,12 +250,8 @@ class tracker(QMainWindow):
         b = QGroupBox()
         blayout = QVBoxLayout()
         b.setTitle("Arm B")
-        self.correct_b_probes = Parameter("# correct b probes", default=0, is_num=True)
-        self.b_probes = Parameter("# b probes", default=0, is_num=True)
         self.correct_b_cued = Parameter("# correct b cued", default=0, is_num=True)
         self.b_cued = Parameter("# b cued", default=0, is_num=True)
-        blayout.addWidget(self.correct_b_probes)
-        blayout.addWidget(self.b_probes)
         blayout.addWidget(self.correct_b_cued)
         blayout.addWidget(self.b_cued)
         b.setLayout(blayout)
@@ -333,15 +276,6 @@ class tracker(QMainWindow):
         container.setLayout(self.layout)
         self.setCentralWidget(container)
         self.timer.start(1000)
-
-    def log_cue_probe(self, i):
-        self.parent.parent.log(f"cue_probe set to {self.cue_probe.isChecked()}")
-        self.blink_probe_cue.setEnabled(self.cue_probe.isChecked())
-        self.probe_cue_blink_time.setEnabled(self.cue_probe.isChecked() and self.blink_probe_cue.isChecked())
-
-    def log_blink_probe_cue(self, i):
-        self.parent.parent.log(f"blink_probe_cue set to {self.blink_probe_cue.isChecked()}")
-        self.probe_cue_blink_time.setEnabled(self.cue_probe.isChecked() and self.blink_probe_cue.isChecked())
 
     def update_time(self):
         self.exp_time.setText(f"{(datetime.now() - self.t_start).total_seconds()/60:.2f}")
