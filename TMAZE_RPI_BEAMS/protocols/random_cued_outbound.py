@@ -1,6 +1,6 @@
 from statemachine import State
 from PyQt5.QtCore import  QTimer
-from PyQt5.QtWidgets import QHBoxLayout, QMainWindow, QVBoxLayout, QWidget, QLabel, QGroupBox, QCheckBox
+from PyQt5.QtWidgets import QHBoxLayout, QMainWindow, QVBoxLayout, QWidget, QLabel, QGroupBox, QCheckBox, QButtonGroup, QRadioButton
 from PyQt5.QtGui import  QDoubleValidator
 from datetime import datetime
 import pandas as pd
@@ -14,7 +14,7 @@ class random_cued_outbound(Protocol):
 
     sleep = State("sleep", initial=True)
     stem_reward= State("stem_reward")
-    stem_small_reward = State("stem_smzall_reward")
+    stem_small_reward = State("stem_small_reward")
 
     a_reward= State("a_reward")
     a_no_reward = State("a_no_reward")
@@ -84,6 +84,7 @@ class random_cued_outbound(Protocol):
         self.tracker.show()
         self.cue_stem()
         self.thread_pool = ThreadPool(processes=5)
+        self.target = None
 
     def a_next(self):
         mode = self.tracker.mode.checkedButton().text()
@@ -151,7 +152,10 @@ class random_cued_outbound(Protocol):
             self.deliver_reward(target)
         self.tracker.trial_count.val += 1
         if self.tracker.sticky.isChecked():
-            if self.target == 'a':
+            if self.target is None:
+                a_prob = float(self.tracker.a_prob.text())
+                p = [a_prob, 1-a_prob]
+            elif self.target == 'a':
                 p_aa = float(self.tracker.p_aa.text())
                 p = [p_aa, 1-p_aa]
             else:
@@ -283,7 +287,7 @@ class tracker(QMainWindow):
         slayout.addLayout(small_rew_layout)
         slayout.addLayout(stem_small_rew_layout)
         slayout.addLayout(a_prob_layout)
-        slyout.addLayout(mode_layout)
+        slayout.addLayout(mode_layout)
         slayout.addWidget(probs)
         settings.setLayout(slayout)
         self.layout.addWidget(settings)
@@ -327,7 +331,6 @@ class tracker(QMainWindow):
         ilayout.addWidget(self.correct_outbound)
         ilayout.addWidget(self.correct_inbound)
         ilayout.addWidget(self.current_state)
-        ilayout.addWidget(self.target)
         ilayout.addWidget(self.tot_rewards)
         ilayout.addWidget(self.total_reward)
         ilayout.addWidget(self.exp_time)
@@ -351,17 +354,9 @@ class tracker(QMainWindow):
     def update_a_prob(self):
         p_aa = float(self.p_aa.text())
         p_bb = float(self.p_bb.text())
-        w = np.array([[p_aa, 1-p_bb],
-                      [1-p_aa, p_bb]])
-        lam, v = np.linalg.eig(w)
-        if (lam ==1).any():
-            idx = np.where(lam==1)[0][0]
-            p = v[:,idx]/v[:,idx].sum()
-            p = p[0]
-        else:
-            self.parent.parent.log("WARNING: unable to compute steady state probability of A given transition probabilities")
-            p = 0
-        self.a_prob.setText(f"{self.get_a_prob}")
+        p_ab = 1 - p_bb
+        p = p_ab/(1 - p_aa + p_ab)
+        self.a_prob.setText(f"{p}")
 
     def update_time(self):
         self.exp_time.setText(f"{(datetime.now() - self.t_start).total_seconds()/60:.2f}")
