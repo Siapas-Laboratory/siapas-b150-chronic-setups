@@ -132,7 +132,7 @@ class non_match_position(Protocol):
         self.tracker.is_probe.setChecked(self.is_probe)
         if self.is_probe:
             self.parent.log("probe trial")
-            cue = not self.tracker.blink_probe_cue.isChecked()
+            cue = self.tracker.blink_probe_cue.isChecked()
             if cue:
                 self.parent.log("blinking cue")
                 timeout = float(self.tracker.probe_cue_blink_time.text())
